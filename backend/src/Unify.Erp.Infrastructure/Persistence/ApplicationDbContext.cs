@@ -6,6 +6,7 @@ using Unify.Erp.Domain.Branches;
 using Unify.Erp.Domain.Customers;
 using Unify.Erp.Domain.Devices;
 using Unify.Erp.Domain.Organisations;
+using Unify.Erp.Domain.Products;
 using Unify.Erp.Domain.Sessions;
 using Unify.Erp.Domain.Suppliers;
 using Unify.Erp.Domain.Users;
@@ -32,6 +33,12 @@ public sealed class ApplicationDbContext
     public DbSet<Customer> Customers => Set<Customer>();
 
     public DbSet<Supplier> Suppliers => Set<Supplier>();
+
+    public DbSet<UnitOfMeasure> UnitsOfMeasure => Set<UnitOfMeasure>();
+
+    public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
+
+    public DbSet<Product> Products => Set<Product>();
 
     public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
 

@@ -53,7 +53,14 @@ Resources:
 - POST /api/v1/suppliers
 - GET /api/v1/suppliers/{supplierId}?organisationId={organisationId}
 - POST /api/v1/suppliers/{supplierId}/deactivate?organisationId={organisationId}
-- products
+- GET /api/v1/products/units?organisationId={organisationId}
+- POST /api/v1/products/units
+- GET /api/v1/products/categories?organisationId={organisationId}
+- POST /api/v1/products/categories
+- GET /api/v1/products?organisationId={organisationId}&categoryId={categoryId}&search={search}
+- POST /api/v1/products
+- GET /api/v1/products/{productId}?organisationId={organisationId}
+- POST /api/v1/products/{productId}/deactivate?organisationId={organisationId}
 - price-lists
 - quotations
 - sales

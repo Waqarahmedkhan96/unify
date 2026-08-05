@@ -99,6 +99,16 @@ Implemented supplier foundation:
 - PriceHistory
 - TaxRate
 
+Implemented product catalog foundation:
+- `units_of_measure`
+- `product_categories`
+- `products`
+- Tenant scoped by `organisation_id`
+- Unique `(organisation_id, code)` for units and categories
+- Unique `(organisation_id, product_code)` for products
+- Decimal purchase and sales prices
+- Restricted foreign keys for catalogue history
+
 ## Sales
 - Sale
 - SaleItem

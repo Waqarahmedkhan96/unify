@@ -16,11 +16,26 @@
 - Health checks.
 - Non-root runtime user.
 
+Production startup requires:
+- `ConnectionStrings__Default`
+- `Jwt__Issuer`
+- `Jwt__Audience`
+- `Jwt__SigningKey` with at least 32 characters
+- `DevelopmentSeed__Enabled=false`
+
+The API fails fast in Production when required secrets are missing, placeholder values are present, token lifetimes are outside allowed bounds, or development seeding is enabled.
+
 ## Database
 - PostgreSQL.
 - Automated backups.
 - Restore verification.
 - Migrations before deployment.
+
+Apply migrations with:
+
+```powershell
+dotnet ef database update --project backend/src/Unify.Erp.Infrastructure/Unify.Erp.Infrastructure.csproj --startup-project backend/src/Unify.Erp.Api/Unify.Erp.Api.csproj --context ApplicationDbContext
+```
 
 ## Flutter
 Android:

@@ -84,6 +84,10 @@ dotnet build backend/Unify.Erp.sln --configuration Release
 dotnet test backend/Unify.Erp.sln --configuration Release --no-build
 ```
 
+## Production Configuration
+
+Production must provide the database connection string and JWT settings through environment variables or a secret manager. The API refuses to start in Production if required values are missing or development seed access is enabled. See [docs/deployment.md](docs/deployment.md).
+
 ## Documentation
 See:
 - MASTER_PROMPT.md

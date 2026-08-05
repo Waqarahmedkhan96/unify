@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Products;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Products;
 
@@ -11,6 +12,7 @@ public static class ProductCatalogEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/products")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.ProductsManage)
             .WithTags("Products");
 
         group.MapPost("/units", CreateUnitAsync).WithName("CreateUnitOfMeasure");

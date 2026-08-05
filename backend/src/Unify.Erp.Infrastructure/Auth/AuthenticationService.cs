@@ -166,7 +166,7 @@ public sealed class AuthenticationService : IAuthenticationService
         CancellationToken cancellationToken)
     {
         var nowUtc = DateTimeOffset.UtcNow;
-        var accessToken = _jwtTokenFactory.CreateAccessToken(user, organisationId, deviceId, nowUtc);
+        var accessToken = await _jwtTokenFactory.CreateAccessTokenAsync(user, organisationId, deviceId, nowUtc);
         var refreshToken = RefreshTokenGenerator.CreateToken();
         var refreshTokenExpiresAtUtc = nowUtc.AddDays(_jwtOptions.RefreshTokenDays);
         var refreshTokenRecord = new RefreshTokenRecord(

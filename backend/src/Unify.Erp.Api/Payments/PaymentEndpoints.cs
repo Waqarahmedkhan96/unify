@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Payments;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Payments;
 
 namespace Unify.Erp.Api.Payments;
@@ -10,6 +11,7 @@ public static class PaymentEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/payments")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.PaymentsManage)
             .WithTags("Payments");
 
         group.MapPost("/customers", CreateCustomerPaymentAsync).WithName("CreateCustomerPayment");

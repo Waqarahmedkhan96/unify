@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Infrastructure.Identity;
 using Unify.Erp.Infrastructure.Persistence;
 
@@ -34,6 +36,7 @@ public static class DevelopmentDataSeeder
 
         if (existingUser is not null)
         {
+            await EnsurePermissionsAsync(userManager, existingUser);
             return;
         }
 
@@ -51,6 +54,22 @@ public static class DevelopmentDataSeeder
         {
             var errors = string.Join("; ", result.Errors.Select(error => $"{error.Code}: {error.Description}"));
             throw new InvalidOperationException($"Development user seed failed: {errors}");
+        }
+
+        await EnsurePermissionsAsync(userManager, user);
+    }
+
+    private static async Task EnsurePermissionsAsync(UserManager<ApplicationUser> userManager, ApplicationUser user)
+    {
+        var claims = await userManager.GetClaimsAsync(user);
+        var existingPermissions = claims
+            .Where(claim => claim.Type == PermissionNames.ClaimType)
+            .Select(claim => claim.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var permission in PermissionNames.All.Where(permission => !existingPermissions.Contains(permission)))
+        {
+            await userManager.AddClaimAsync(user, new Claim(PermissionNames.ClaimType, permission));
         }
     }
 }

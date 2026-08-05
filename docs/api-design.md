@@ -120,6 +120,8 @@ Every API response includes `X-Correlation-ID`. Clients may provide this header 
 - Rate limiting
 - Request size limits
 
+Implemented module permission policies use JWT `permission` claims. Each protected module group requires its matching permission claim.
+
 # Part 7 - Reporting
 Endpoints generate:
 - Excel

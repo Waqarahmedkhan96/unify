@@ -64,6 +64,14 @@ PostgreSQL stores authoritative business data.
 - AuditEntry
 - Notification
 
+Implemented audit foundation:
+- `audit_entries`
+- Captures create, update, and delete operations for domain entities
+- Stores entity name, entity id, operation, changed properties, old values, and new values
+- Captures optional organisation, user, user email, and correlation id
+- JSONB columns are used for value snapshots
+- Indexed by organisation/date, entity, and correlation id
+
 ## CRM
 - Customer
 - CustomerAddress

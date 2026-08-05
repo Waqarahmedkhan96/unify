@@ -1,5 +1,7 @@
 using Unify.Erp.Api.Common;
+using Unify.Erp.Application.Audit;
 using Unify.Erp.Application.Platform;
+using Unify.Erp.Contracts.Audit;
 using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Platform;
@@ -32,6 +34,9 @@ public static class PlatformEndpoints
 
         group.MapGet("/organisations/{organisationId:guid}/warehouses", ListWarehousesAsync)
             .WithName("ListWarehouses");
+
+        group.MapGet("/audit-entries", ListAuditEntriesAsync)
+            .WithName("ListAuditEntries");
 
         return endpoints;
     }
@@ -158,6 +163,30 @@ public static class PlatformEndpoints
         var response = await warehouseService.ListByOrganisationAsync(
             organisationId,
             new PagedRequest(pageNumber ?? 1, pageSize ?? 50),
+            cancellationToken);
+
+        return Results.Ok(response);
+    }
+
+    private static async Task<IResult> ListAuditEntriesAsync(
+        Guid? organisationId,
+        string? entityName,
+        string? entityId,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        int? pageNumber,
+        int? pageSize,
+        IAuditService auditService,
+        CancellationToken cancellationToken)
+    {
+        var response = await auditService.ListAsync(
+            new ListAuditEntriesRequest(
+                organisationId,
+                entityName,
+                entityId,
+                fromUtc,
+                toUtc,
+                new PagedRequest(pageNumber ?? 1, pageSize ?? 50)),
             cancellationToken);
 
         return Results.Ok(response);

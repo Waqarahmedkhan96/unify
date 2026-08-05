@@ -43,6 +43,12 @@ Audit:
 - Inventory adjustments
 - Sync conflicts
 
+Implemented audit trail:
+- Domain entity create, update, and delete operations are persisted to `audit_entries`.
+- Audit rows include request user metadata when available.
+- Audit rows include the request correlation id for log-to-data tracing.
+- Platform operators can read audit entries through the protected Platform API.
+
 ## Offline
 - Device stock allocation
 - Idempotent sync

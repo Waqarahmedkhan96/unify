@@ -43,6 +43,13 @@ GitHub Actions:
 - Health endpoints
 - Metrics
 - Backup monitoring
+- Audit trail review through protected Platform API
+
+## Pre-Deployment Checks
+- Apply EF Core migrations before starting the new application version.
+- Confirm `/health/live` and `/health/ready` return healthy responses.
+- Confirm protected Platform endpoints reject anonymous requests.
+- Confirm audit entries are created for representative create and update workflows.
 
 ## Rollback
 - Restore DB backup if required.

@@ -2,8 +2,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Unify.Erp.Application.Auth;
 using Unify.Erp.Application.Accounting;
+using Unify.Erp.Application.Audit;
+using Unify.Erp.Application.Common;
 using Unify.Erp.Application.Customers;
 using Unify.Erp.Application.Inventory;
 using Unify.Erp.Application.Payments;
@@ -14,6 +17,8 @@ using Unify.Erp.Application.Sales;
 using Unify.Erp.Application.Suppliers;
 using Unify.Erp.Infrastructure.Auth;
 using Unify.Erp.Infrastructure.Accounting;
+using Unify.Erp.Infrastructure.Audit;
+using Unify.Erp.Infrastructure.Common;
 using Unify.Erp.Infrastructure.Customers;
 using Unify.Erp.Infrastructure.Identity;
 using Unify.Erp.Infrastructure.Inventory;
@@ -35,7 +40,10 @@ public static class DependencyInjection
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<DevelopmentSeedOptions>(configuration.GetSection(DevelopmentSeedOptions.SectionName));
+        services.TryAddScoped<IExecutionContext, SystemExecutionContext>();
+        services.AddScoped<AuditSaveChangesInterceptor>();
         services.AddScoped<JwtTokenFactory>();
+        services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IAuthenticationService, Auth.AuthenticationService>();
         services.AddScoped<IOrganisationService, OrganisationService>();
         services.AddScoped<IBranchService, BranchService>();
@@ -53,8 +61,12 @@ public static class DependencyInjection
 
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
-            services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseNpgsql(connectionString));
+            services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+            {
+                options
+                    .UseNpgsql(connectionString)
+                    .AddInterceptors(serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>());
+            });
         }
 
         services

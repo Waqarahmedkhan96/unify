@@ -14,6 +14,7 @@ using Unify.Erp.Api.Purchasing;
 using Unify.Erp.Api.Sales;
 using Unify.Erp.Api.Suppliers;
 using Unify.Erp.Application;
+using Unify.Erp.Application.Common;
 using Unify.Erp.Contracts.System;
 using Unify.Erp.Infrastructure;
 using Unify.Erp.Infrastructure.Auth;
@@ -22,6 +23,8 @@ using Unify.Erp.Infrastructure.Seed;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IExecutionContext, HttpExecutionContext>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();

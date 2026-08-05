@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Unify.Erp.Domain.Audit;
 using Unify.Erp.Domain.Access;
 using Unify.Erp.Domain.Accounting;
 using Unify.Erp.Domain.Branches;
@@ -90,6 +91,8 @@ public sealed class ApplicationDbContext
     public DbSet<DeviceSession> DeviceSessions => Set<DeviceSession>();
 
     public DbSet<RefreshTokenRecord> RefreshTokens => Set<RefreshTokenRecord>();
+
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

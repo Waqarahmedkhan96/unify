@@ -26,5 +26,6 @@ public sealed class ApplicationDbContextModelTests
         Assert.Contains("device_sessions", entityTableNames);
         Assert.Contains("platform_users", entityTableNames);
         Assert.Contains("refresh_tokens", entityTableNames);
+        Assert.Contains("audit_entries", entityTableNames);
     }
 }

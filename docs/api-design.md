@@ -122,6 +122,12 @@ Every API response includes `X-Correlation-ID`. Clients may provide this header 
 
 Implemented module permission policies use JWT `permission` claims. Each protected module group requires its matching permission claim.
 
+Platform audit endpoint:
+- `GET /api/v1/platform/audit-entries`
+- Requires `platform.manage`
+- Supports `organisationId`, `entityName`, `entityId`, `fromUtc`, `toUtc`, `pageNumber`, and `pageSize`
+- Returns paged audit entries for operational traceability
+
 # Part 7 - Reporting
 Endpoints generate:
 - Excel

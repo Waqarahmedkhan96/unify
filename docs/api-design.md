@@ -112,6 +112,8 @@ Validation failures use RFC7807 validation Problem Details with:
 
 Every API response includes `X-Correlation-ID`. Clients may provide this header to trace a request across logs.
 
+Flutter web and browser clients must be listed in `Cors__AllowedOrigins`. Development allows local Flutter web test ports.
+
 # Part 6 - Security
 - HTTPS only
 - Authorization policies

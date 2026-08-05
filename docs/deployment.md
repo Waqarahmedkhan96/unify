@@ -35,6 +35,9 @@ Production HTTPS variables:
 - `Https__RequireHttps`
 - `Https__HstsDays`
 
+Production browser client variable:
+- `Cors__AllowedOrigins__0`
+
 First admin bootstrap variables:
 - `BootstrapAdmin__Enabled`
 - `BootstrapAdmin__Email`

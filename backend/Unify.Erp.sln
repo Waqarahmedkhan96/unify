@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unify.Erp.Domain.Tests", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unify.Erp.Architecture.Tests", "tests\Unify.Erp.Architecture.Tests\Unify.Erp.Architecture.Tests.csproj", "{FEA1D08C-997A-4FC9-8E9B-49A9E5AF07FA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unify.Erp.Infrastructure.Tests", "tests\Unify.Erp.Infrastructure.Tests\Unify.Erp.Infrastructure.Tests.csproj", "{32CAA2EA-B378-49BB-B5D2-A05F23E3A8B6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -58,6 +60,10 @@ Global
 		{FEA1D08C-997A-4FC9-8E9B-49A9E5AF07FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FEA1D08C-997A-4FC9-8E9B-49A9E5AF07FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FEA1D08C-997A-4FC9-8E9B-49A9E5AF07FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32CAA2EA-B378-49BB-B5D2-A05F23E3A8B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32CAA2EA-B378-49BB-B5D2-A05F23E3A8B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32CAA2EA-B378-49BB-B5D2-A05F23E3A8B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32CAA2EA-B378-49BB-B5D2-A05F23E3A8B6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{3A775FB7-C475-4919-B120-28CEA307E51E} = {9F7D264F-8F13-433B-8616-DD6D21E0A7A3}
@@ -67,5 +73,6 @@ Global
 		{2D5B2F60-06F8-405B-B92E-103719DDEC14} = {9F7D264F-8F13-433B-8616-DD6D21E0A7A3}
 		{0AA29C6B-0DFC-48D9-81E1-77F4E3206011} = {DE5B6815-9C05-4174-97B7-506154F5C68E}
 		{FEA1D08C-997A-4FC9-8E9B-49A9E5AF07FA} = {DE5B6815-9C05-4174-97B7-506154F5C68E}
+		{32CAA2EA-B378-49BB-B5D2-A05F23E3A8B6} = {DE5B6815-9C05-4174-97B7-506154F5C68E}
 	EndGlobalSection
 EndGlobal

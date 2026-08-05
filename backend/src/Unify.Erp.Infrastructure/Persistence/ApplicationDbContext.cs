@@ -8,6 +8,7 @@ using Unify.Erp.Domain.Organisations;
 using Unify.Erp.Domain.Sessions;
 using Unify.Erp.Domain.Users;
 using Unify.Erp.Domain.Warehouses;
+using Unify.Erp.Infrastructure.Auth;
 using Unify.Erp.Infrastructure.Identity;
 
 namespace Unify.Erp.Infrastructure.Persistence;
@@ -37,6 +38,8 @@ public sealed class ApplicationDbContext
     public DbSet<Device> Devices => Set<Device>();
 
     public DbSet<DeviceSession> DeviceSessions => Set<DeviceSession>();
+
+    public DbSet<RefreshTokenRecord> RefreshTokens => Set<RefreshTokenRecord>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

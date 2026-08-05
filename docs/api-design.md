@@ -14,11 +14,11 @@
 
 # Part 2 - Authentication
 Endpoints:
-- POST /auth/login
-- POST /auth/refresh
-- POST /auth/logout
-- POST /auth/logout-all
-- GET /auth/sessions
+- POST /api/v1/auth/login
+- POST /api/v1/auth/refresh
+- POST /api/v1/auth/logout
+- POST /api/v1/auth/logout-all
+- GET /api/v1/auth/sessions
 
 JWT + rotating refresh tokens.
 

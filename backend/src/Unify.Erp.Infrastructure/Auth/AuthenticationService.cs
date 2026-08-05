@@ -108,6 +108,56 @@ public sealed class AuthenticationService : IAuthenticationService
         return result;
     }
 
+    public async Task LogoutAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        var tokenHash = RefreshTokenHasher.Hash(refreshToken);
+        var nowUtc = DateTimeOffset.UtcNow;
+        var existingToken = await _dbContext.RefreshTokens
+            .SingleOrDefaultAsync(token => token.TokenHash == tokenHash, cancellationToken);
+
+        if (existingToken is null || existingToken.RevokedAtUtc is not null)
+        {
+            return;
+        }
+
+        existingToken.Revoke(nowUtc, null);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task LogoutAllAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var nowUtc = DateTimeOffset.UtcNow;
+        var activeTokens = await _dbContext.RefreshTokens
+            .Where(token => token.UserId == userId && token.RevokedAtUtc == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var token in activeTokens)
+        {
+            token.Revoke(nowUtc, null);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<AuthSessionResponse>> ListSessionsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var nowUtc = DateTimeOffset.UtcNow;
+
+        return await _dbContext.RefreshTokens
+            .Where(token => token.UserId == userId)
+            .OrderByDescending(token => token.CreatedAtUtc)
+            .Select(token => new AuthSessionResponse(
+                token.Id,
+                token.OrganisationId,
+                token.DeviceId,
+                token.CreatedAtUtc,
+                token.ExpiresAtUtc,
+                token.RevokedAtUtc == null && token.ExpiresAtUtc > nowUtc))
+            .ToListAsync(cancellationToken);
+    }
+
     private async Task<AuthenticationResult> CreateSessionAsync(
         ApplicationUser user,
         Guid? organisationId,

@@ -6,6 +6,7 @@ using Unify.Erp.Application;
 using Unify.Erp.Contracts.System;
 using Unify.Erp.Infrastructure;
 using Unify.Erp.Infrastructure.Auth;
+using Unify.Erp.Infrastructure.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,11 @@ if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
 }
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    await DevelopmentDataSeeder.InitializeAsync(app.Services, CancellationToken.None);
+}
 
 if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
 {

@@ -19,6 +19,7 @@ Endpoints:
 - POST /api/v1/auth/logout
 - POST /api/v1/auth/logout-all
 - GET /api/v1/auth/sessions
+- GET /api/v1/auth/me
 
 JWT + rotating refresh tokens.
 

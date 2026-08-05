@@ -63,4 +63,14 @@ public static class Guard
 
         return value;
     }
+
+    public static decimal PositiveQuantity(decimal value, string parameterName)
+    {
+        if (value <= 0)
+        {
+            throw new ArgumentException("Value must be greater than zero.", parameterName);
+        }
+
+        return value;
+    }
 }

@@ -1,6 +1,8 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Unify.Erp.Api.Auth;
 using Unify.Erp.Api.Accounting;
@@ -31,6 +33,32 @@ builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
 
 ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment.EnvironmentName);
+
+var rateLimitingOptions = builder.Configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>()
+    ?? new RateLimitingOptions();
+if (rateLimitingOptions.Enabled)
+{
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        {
+            var partitionKey = context.User.Identity?.Name
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "anonymous";
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = Math.Max(1, rateLimitingOptions.PermitLimit),
+                    QueueLimit = 0,
+                    Window = TimeSpan.FromSeconds(Math.Max(1, rateLimitingOptions.WindowSeconds))
+                });
+        });
+    });
+}
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
@@ -93,6 +121,15 @@ if (app.Environment.IsDevelopment())
 if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
 {
     app.UseAuthentication();
+}
+
+if (rateLimitingOptions.Enabled)
+{
+    app.UseRateLimiter();
+}
+
+if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
+{
     app.UseAuthorization();
 }
 

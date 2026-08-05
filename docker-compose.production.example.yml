@@ -9,4 +9,7 @@ services:
       Jwt__SigningKey: ${Jwt__SigningKey}
       Jwt__AccessTokenMinutes: ${Jwt__AccessTokenMinutes:-15}
       Jwt__RefreshTokenDays: ${Jwt__RefreshTokenDays:-30}
+      RateLimiting__Enabled: ${RateLimiting__Enabled:-true}
+      RateLimiting__PermitLimit: ${RateLimiting__PermitLimit:-120}
+      RateLimiting__WindowSeconds: ${RateLimiting__WindowSeconds:-60}
       DevelopmentSeed__Enabled: "false"

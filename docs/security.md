@@ -21,6 +21,12 @@
 - Problem Details
 - Correlation IDs
 
+Implemented rate limiting:
+- Global fixed-window limiting is enabled by default.
+- Authenticated users are partitioned independently.
+- Anonymous clients are partitioned by remote IP address.
+- Rejected requests return HTTP 429.
+
 ## Data
 - Decimal for money
 - UTC timestamps

@@ -122,6 +122,8 @@ Every API response includes `X-Correlation-ID`. Clients may provide this header 
 
 Implemented module permission policies use JWT `permission` claims. Each protected module group requires its matching permission claim.
 
+Implemented global rate limiting uses a fixed window limiter partitioned by authenticated user name when present, otherwise by remote IP. Defaults are 120 requests per 60 seconds and can be changed with `RateLimiting__PermitLimit` and `RateLimiting__WindowSeconds`.
+
 Platform audit endpoint:
 - `GET /api/v1/platform/audit-entries`
 - Requires `platform.manage`

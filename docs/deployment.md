@@ -23,6 +23,11 @@ Production startup requires:
 - `Jwt__SigningKey` with at least 32 characters
 - `DevelopmentSeed__Enabled=false`
 
+Production rate limiting variables:
+- `RateLimiting__Enabled`
+- `RateLimiting__PermitLimit`
+- `RateLimiting__WindowSeconds`
+
 The API fails fast in Production when required secrets are missing, placeholder values are present, token lifetimes are outside allowed bounds, or development seeding is enabled.
 
 ## Database

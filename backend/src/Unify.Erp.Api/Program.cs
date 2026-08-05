@@ -8,6 +8,7 @@ using Unify.Erp.Api.Customers;
 using Unify.Erp.Api.Inventory;
 using Unify.Erp.Api.Platform;
 using Unify.Erp.Api.Products;
+using Unify.Erp.Api.Sales;
 using Unify.Erp.Api.Suppliers;
 using Unify.Erp.Application;
 using Unify.Erp.Contracts.System;
@@ -103,6 +104,7 @@ app.MapCustomerEndpoints();
 app.MapSupplierEndpoints();
 app.MapProductCatalogEndpoints();
 app.MapInventoryEndpoints();
+app.MapSalesEndpoints();
 
 app.Run();
 

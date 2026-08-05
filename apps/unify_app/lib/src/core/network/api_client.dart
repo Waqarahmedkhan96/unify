@@ -76,8 +76,175 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> health() async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/v1/system/health');
+    final response =
+        await _dio.get<Map<String, dynamic>>('/api/v1/system/health');
 
     return response.data ?? {};
+  }
+
+  Future<List<Map<String, dynamic>>> listOrganisations(
+      String accessToken) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/platform/organisations',
+      queryParameters: {'pageNumber': 1, 'pageSize': 50},
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> listBranches(
+      String accessToken, String organisationId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/platform/organisations/$organisationId/branches',
+      queryParameters: {'pageNumber': 1, 'pageSize': 50},
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> listWarehouses(
+      String accessToken, String organisationId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/platform/organisations/$organisationId/warehouses',
+      queryParameters: {'pageNumber': 1, 'pageSize': 50},
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> listCustomers(
+    String accessToken,
+    String organisationId, {
+    String? search,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/customers',
+      queryParameters: {
+        'organisationId': organisationId,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        'pageNumber': 1,
+        'pageSize': 100,
+      },
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<Map<String, dynamic>> createCustomer(
+    String accessToken, {
+    required String organisationId,
+    required String branchId,
+    required String customerNumber,
+    required String displayName,
+    required String phone,
+    required String email,
+    required double creditLimit,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/customers/',
+      data: {
+        'organisationId': organisationId,
+        'branchId': branchId,
+        'customerNumber': customerNumber,
+        'displayName': displayName,
+        'legalName': displayName,
+        'phone': phone,
+        'email': email,
+        'taxNumber': null,
+        'creditLimit': creditLimit,
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Future<List<Map<String, dynamic>>> listProducts(
+      String accessToken, String organisationId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/products',
+      queryParameters: {
+        'organisationId': organisationId,
+        'pageNumber': 1,
+        'pageSize': 100
+      },
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> listSales(
+    String accessToken,
+    String organisationId, {
+    String? customerId,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/sales',
+      queryParameters: {
+        'organisationId': organisationId,
+        if (customerId != null) 'customerId': customerId,
+        'pageNumber': 1,
+        'pageSize': 100,
+      },
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<Map<String, dynamic>> createSale(
+    String accessToken, {
+    required String organisationId,
+    required String branchId,
+    required String warehouseId,
+    required String customerId,
+    required String productId,
+    required String description,
+    required double quantity,
+    required double unitPrice,
+  }) async {
+    final invoiceNumber = 'INV-${DateTime.now().millisecondsSinceEpoch}';
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/sales/',
+      data: {
+        'organisationId': organisationId,
+        'branchId': branchId,
+        'warehouseId': warehouseId,
+        'customerId': customerId,
+        'invoiceNumber': invoiceNumber,
+        'saleDateUtc': DateTime.now().toUtc().toIso8601String(),
+        'items': [
+          {
+            'productId': productId,
+            'description': description,
+            'quantity': quantity,
+            'unitPrice': unitPrice,
+            'discountAmount': 0,
+            'taxAmount': 0,
+          }
+        ],
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Options _auth(String accessToken) {
+    return Options(headers: {'Authorization': 'Bearer $accessToken'});
+  }
+
+  List<Map<String, dynamic>> _items(Map<String, dynamic>? response) {
+    final rawItems = response?['items'];
+    if (rawItems is! List) {
+      return [];
+    }
+
+    return rawItems.whereType<Map<String, dynamic>>().toList();
   }
 }

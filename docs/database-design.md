@@ -84,6 +84,13 @@ Implemented customer foundation:
 - SupplierAddress
 - SupplierLedgerEntry
 
+Implemented supplier foundation:
+- `suppliers`
+- Tenant scoped by `organisation_id`
+- Unique `(organisation_id, supplier_number)`
+- Restricted foreign key to organisation
+- Deactivation instead of hard delete
+
 ## Products
 - Product
 - ProductCategory

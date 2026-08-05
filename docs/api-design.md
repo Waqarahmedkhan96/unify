@@ -49,7 +49,10 @@ Resources:
 - POST /api/v1/customers
 - GET /api/v1/customers/{customerId}?organisationId={organisationId}
 - POST /api/v1/customers/{customerId}/deactivate?organisationId={organisationId}
-- suppliers
+- GET /api/v1/suppliers?organisationId={organisationId}&search={search}
+- POST /api/v1/suppliers
+- GET /api/v1/suppliers/{supplierId}?organisationId={organisationId}
+- POST /api/v1/suppliers/{supplierId}/deactivate?organisationId={organisationId}
 - products
 - price-lists
 - quotations

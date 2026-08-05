@@ -5,12 +5,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Unify.Erp.Application.Auth;
 using Unify.Erp.Application.Customers;
 using Unify.Erp.Application.Platform;
+using Unify.Erp.Application.Suppliers;
 using Unify.Erp.Infrastructure.Auth;
 using Unify.Erp.Infrastructure.Customers;
 using Unify.Erp.Infrastructure.Identity;
 using Unify.Erp.Infrastructure.Persistence;
 using Unify.Erp.Infrastructure.Platform;
 using Unify.Erp.Infrastructure.Seed;
+using Unify.Erp.Infrastructure.Suppliers;
 
 namespace Unify.Erp.Infrastructure;
 
@@ -27,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IWarehouseService, WarehouseService>();
         services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<ISupplierService, SupplierService>();
 
         var connectionString = configuration.GetConnectionString("Default");
 

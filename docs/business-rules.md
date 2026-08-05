@@ -45,6 +45,9 @@
 - Allocations cannot exceed payment
 - Allocations cannot exceed outstanding balance
 - Advances supported
+- Customer payments require an active customer in the payment branch
+- Receipt number must be unique per organisation
+- Customer balance is derived from ledger debits minus credits
 
 # Part 6 – Inventory Rules
 - Every change creates StockMovement

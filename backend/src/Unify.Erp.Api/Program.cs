@@ -6,6 +6,7 @@ using Unify.Erp.Api.Auth;
 using Unify.Erp.Api.Common;
 using Unify.Erp.Api.Customers;
 using Unify.Erp.Api.Inventory;
+using Unify.Erp.Api.Payments;
 using Unify.Erp.Api.Platform;
 using Unify.Erp.Api.Products;
 using Unify.Erp.Api.Sales;
@@ -105,6 +106,7 @@ app.MapSupplierEndpoints();
 app.MapProductCatalogEndpoints();
 app.MapInventoryEndpoints();
 app.MapSalesEndpoints();
+app.MapPaymentEndpoints();
 
 app.Run();
 

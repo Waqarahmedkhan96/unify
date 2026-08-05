@@ -63,7 +63,9 @@ Resources:
 - POST /api/v1/products/{productId}/deactivate?organisationId={organisationId}
 - price-lists
 - quotations
-- sales
+- POST /api/v1/sales
+- GET /api/v1/sales?organisationId={organisationId}&customerId={customerId}
+- GET /api/v1/sales/{saleId}?organisationId={organisationId}
 - payments
 - purchases
 - POST /api/v1/inventory/adjustments

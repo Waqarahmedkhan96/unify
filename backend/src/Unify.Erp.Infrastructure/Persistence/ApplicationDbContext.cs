@@ -8,6 +8,7 @@ using Unify.Erp.Domain.Devices;
 using Unify.Erp.Domain.Inventory;
 using Unify.Erp.Domain.Organisations;
 using Unify.Erp.Domain.Products;
+using Unify.Erp.Domain.Sales;
 using Unify.Erp.Domain.Sessions;
 using Unify.Erp.Domain.Suppliers;
 using Unify.Erp.Domain.Users;
@@ -44,6 +45,10 @@ public sealed class ApplicationDbContext
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
 
     public DbSet<StockBalance> StockBalances => Set<StockBalance>();
+
+    public DbSet<Sale> Sales => Set<Sale>();
+
+    public DbSet<SaleItem> SaleItems => Set<SaleItem>();
 
     public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
 

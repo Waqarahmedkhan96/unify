@@ -116,6 +116,15 @@ Implemented product catalog foundation:
 - PaymentAllocation
 - SaleReturn
 
+Implemented sales foundation:
+- `sales`
+- `sale_items`
+- Tenant scoped by `organisation_id`
+- Unique `(organisation_id, invoice_number)`
+- Server-calculated totals
+- Sale creation issues stock movements for inventory-tracked products
+- Posted sales are preserved for history
+
 ## Purchasing
 - PurchaseOrder
 - PurchaseOrderItem

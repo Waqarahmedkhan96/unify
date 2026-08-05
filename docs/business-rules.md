@@ -30,6 +30,9 @@
 - Historical prices immutable
 - Discounts require permissions
 - Corrections through returns/reversals
+- Invoice number must be unique per organisation
+- Sales require active customers in the sale branch
+- Sales require sufficient stock for inventory-tracked products
 
 # Part 4.1 - Product Rules
 - Unique product code per organisation

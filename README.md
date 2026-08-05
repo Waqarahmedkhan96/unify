@@ -106,6 +106,14 @@ Production must provide the database connection string and JWT settings through 
 
 Production HTTPS should terminate at the reverse proxy. The API trusts forwarded headers in Production, applies HSTS, and redirects HTTP to HTTPS when enabled.
 
+For Docker-based HTTPS, use the production Caddy override:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.production.example.yml -f docker-compose.https.example.yml up -d --build
+```
+
+Set `UNIFY_DOMAIN`, `UNIFY_TLS_EMAIL`, production JWT values, database credentials, and the exact HTTPS UI CORS origin before running it.
+
 ## Documentation
 See:
 - MASTER_PROMPT.md

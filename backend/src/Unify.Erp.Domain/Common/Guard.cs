@@ -27,4 +27,30 @@ public static class Guard
 
         return trimmed;
     }
+
+    public static string? OptionalText(string? value, string parameterName, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > maxLength)
+        {
+            throw new ArgumentException($"Value cannot exceed {maxLength} characters.", parameterName);
+        }
+
+        return trimmed;
+    }
+
+    public static decimal NonNegativeMoney(decimal value, string parameterName)
+    {
+        if (value < 0)
+        {
+            throw new ArgumentException("Value cannot be negative.", parameterName);
+        }
+
+        return value;
+    }
 }

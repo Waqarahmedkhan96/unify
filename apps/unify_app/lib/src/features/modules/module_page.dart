@@ -674,12 +674,17 @@ class _SummaryTile extends StatelessWidget {
 }
 
 class _LiveDataTable extends StatelessWidget {
-  const _LiveDataTable(
-      {required this.columns, required this.rows, required this.emptyText});
+  const _LiveDataTable({
+    required this.columns,
+    required this.rows,
+    required this.emptyText,
+    this.rowActions,
+  });
 
   final List<String> columns;
   final List<List<String>> rows;
   final String emptyText;
+  final List<Widget>? rowActions;
 
   @override
   Widget build(BuildContext context) {
@@ -699,9 +704,10 @@ class _LiveDataTable extends StatelessWidget {
                       DataColumn(label: Text(column))
                   ],
                   rows: [
-                    for (final row in rows)
+                    for (var index = 0; index < rows.length; index++)
                       DataRow(cells: [
-                        for (final cell in row) DataCell(Text(cell))
+                        for (final cell in rows[index]) DataCell(Text(cell)),
+                        if (rowActions != null) DataCell(rowActions![index]),
                       ]),
                   ],
                 ),
@@ -1330,6 +1336,16 @@ class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
   final _currentPassword = TextEditingController();
   final _newPassword = TextEditingController();
   bool _obscure = true;
+  bool _accessLoading = true;
+  String? _accessError;
+  List<Map<String, dynamic>> _accessUsers = [];
+  List<Map<String, dynamic>> _permissions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAccess());
+  }
 
   @override
   void dispose() {
@@ -1410,6 +1426,17 @@ class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
                   ),
                 ),
               ),
+              const SizedBox(height: AppSpacing.lg),
+              _AccessManagementPanel(
+                loading: _accessLoading,
+                error: _accessError,
+                users: _accessUsers,
+                permissions: _permissions,
+                onRefresh: _loadAccess,
+                onCreateUser: _createAccessUser,
+                onEditPermissions: _editAccessUserPermissions,
+                onSetDisabled: _setAccessUserDisabled,
+              ),
             ],
           ),
         );
@@ -1429,6 +1456,424 @@ class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
       );
     }
   }
+
+  Future<void> _loadAccess() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      setState(() {
+        _accessLoading = false;
+        _accessError = 'Sign in again before managing access.';
+      });
+      return;
+    }
+
+    setState(() {
+      _accessLoading = true;
+      _accessError = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final permissions = await api.listAccessPermissions(token);
+      final users = await api.listAccessUsers(token);
+      setState(() {
+        _permissions = permissions;
+        _accessUsers = users;
+      });
+    } catch (error) {
+      setState(() => _accessError = 'Could not load access management: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _accessLoading = false);
+      }
+    }
+  }
+
+  Future<void> _createAccessUser() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CreateAccessUserDialog(permissions: _permissions),
+    );
+
+    if (created == true) {
+      await _loadAccess();
+    }
+  }
+
+  Future<void> _editAccessUserPermissions(Map<String, dynamic> user) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          _EditPermissionsDialog(user: user, permissions: _permissions),
+    );
+
+    if (updated == true) {
+      await _loadAccess();
+    }
+  }
+
+  Future<void> _setAccessUserDisabled(
+      Map<String, dynamic> user, bool disabled) async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      return;
+    }
+
+    try {
+      await ref.read(apiClientProvider).setAccessUserDisabled(
+            token,
+            userId: '${user['id']}',
+            disabled: disabled,
+          );
+      await _loadAccess();
+    } catch (error) {
+      setState(() => _accessError = 'Could not update user status: $error');
+    }
+  }
+}
+
+class _AccessManagementPanel extends StatelessWidget {
+  const _AccessManagementPanel({
+    required this.loading,
+    required this.error,
+    required this.users,
+    required this.permissions,
+    required this.onRefresh,
+    required this.onCreateUser,
+    required this.onEditPermissions,
+    required this.onSetDisabled,
+  });
+
+  final bool loading;
+  final String? error;
+  final List<Map<String, dynamic>> users;
+  final List<Map<String, dynamic>> permissions;
+  final VoidCallback onRefresh;
+  final VoidCallback onCreateUser;
+  final void Function(Map<String, dynamic> user) onEditPermissions;
+  final void Function(Map<String, dynamic> user, bool disabled) onSetDisabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.sm,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Admin and managers',
+                        style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text('Create users and assign protected permissions.',
+                        style: Theme.of(context).textTheme.bodyMedium),
+                  ],
+                ),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  children: [
+                    IconButton.filledTonal(
+                        onPressed: loading ? null : onRefresh,
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Refresh'),
+                    FilledButton.icon(
+                        onPressed: loading || permissions.isEmpty
+                            ? null
+                            : onCreateUser,
+                        icon: const Icon(Icons.person_add_alt_1),
+                        label: const Text('New manager')),
+                  ],
+                ),
+              ],
+            ),
+            if (error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            if (loading)
+              const LinearProgressIndicator()
+            else
+              _LiveDataTable(
+                emptyText: 'No users found.',
+                columns: const ['User', 'Status', 'Permissions', 'Actions'],
+                rows: [
+                  for (final user in users)
+                    [
+                      '${user['displayName'] ?? ''}\n${user['email'] ?? ''}',
+                      (user['isDisabled'] == true) ? 'Disabled' : 'Active',
+                      _permissionSummary(user['permissions']),
+                    ],
+                ],
+                rowActions: [
+                  for (final user in users)
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      children: [
+                        IconButton.filledTonal(
+                          onPressed: () => onEditPermissions(user),
+                          icon: const Icon(Icons.admin_panel_settings_outlined),
+                          tooltip: 'Edit permissions',
+                        ),
+                        IconButton.filledTonal(
+                          onPressed: () =>
+                              onSetDisabled(user, user['isDisabled'] != true),
+                          icon: Icon(user['isDisabled'] == true
+                              ? Icons.lock_open_outlined
+                              : Icons.lock_outline),
+                          tooltip: user['isDisabled'] == true
+                              ? 'Enable user'
+                              : 'Disable user',
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateAccessUserDialog extends ConsumerStatefulWidget {
+  const _CreateAccessUserDialog({required this.permissions});
+
+  final List<Map<String, dynamic>> permissions;
+
+  @override
+  ConsumerState<_CreateAccessUserDialog> createState() =>
+      _CreateAccessUserDialogState();
+}
+
+class _CreateAccessUserDialogState
+    extends ConsumerState<_CreateAccessUserDialog> {
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController(text: 'Manager123!');
+  final Set<String> _selected = {'customers.manage', 'sales.manage'};
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New manager'),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                  controller: _name,
+                  decoration: const InputDecoration(
+                      labelText: 'Display name',
+                      prefixIcon: Icon(Icons.badge_outlined))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                  controller: _email,
+                  decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.mail_outline))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                  controller: _password,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Temporary password',
+                      prefixIcon: Icon(Icons.password))),
+              const SizedBox(height: AppSpacing.md),
+              _PermissionChecklist(
+                  permissions: widget.permissions, selected: _selected),
+              if (_error != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(_error!, style: const TextStyle(color: AppColors.danger)),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _create,
+            icon: const Icon(Icons.person_add_alt_1),
+            label: const Text('Create')),
+      ],
+    );
+  }
+
+  Future<void> _create() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null ||
+        _name.text.trim().isEmpty ||
+        _email.text.trim().isEmpty ||
+        _password.text.isEmpty) {
+      setState(() => _error = 'Name, email, and password are required.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createAccessUser(
+            token,
+            email: _email.text.trim(),
+            displayName: _name.text.trim(),
+            password: _password.text,
+            permissions: _selected.toList(),
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'User could not be created: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+class _EditPermissionsDialog extends ConsumerStatefulWidget {
+  const _EditPermissionsDialog({required this.user, required this.permissions});
+
+  final Map<String, dynamic> user;
+  final List<Map<String, dynamic>> permissions;
+
+  @override
+  ConsumerState<_EditPermissionsDialog> createState() =>
+      _EditPermissionsDialogState();
+}
+
+class _EditPermissionsDialogState
+    extends ConsumerState<_EditPermissionsDialog> {
+  late final Set<String> _selected =
+      _readPermissions(widget.user['permissions']).toSet();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Permissions: ${widget.user['displayName'] ?? ''}'),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PermissionChecklist(
+                  permissions: widget.permissions, selected: _selected),
+              if (_error != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(_error!, style: const TextStyle(color: AppColors.danger)),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Save')),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).updateAccessUserPermissions(
+            token,
+            userId: '${widget.user['id']}',
+            permissions: _selected.toList(),
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Permissions could not be saved: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+class _PermissionChecklist extends StatefulWidget {
+  const _PermissionChecklist(
+      {required this.permissions, required this.selected});
+
+  final List<Map<String, dynamic>> permissions;
+  final Set<String> selected;
+
+  @override
+  State<_PermissionChecklist> createState() => _PermissionChecklistState();
+}
+
+class _PermissionChecklistState extends State<_PermissionChecklist> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final permission in widget.permissions)
+          CheckboxListTile(
+            value: widget.selected.contains('${permission['key']}'),
+            onChanged: (value) {
+              setState(() {
+                if (value == true) {
+                  widget.selected.add('${permission['key']}');
+                } else {
+                  widget.selected.remove('${permission['key']}');
+                }
+              });
+            },
+            title: Text('${permission['key']}'),
+            subtitle: Text('${permission['description']}'),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
+      ],
+    );
+  }
 }
 
 double _asDouble(Object? value) {
@@ -1437,6 +1882,23 @@ double _asDouble(Object? value) {
   }
 
   return double.tryParse('$value') ?? 0;
+}
+
+String _permissionSummary(Object? value) {
+  final permissions = _readPermissions(value);
+  if (permissions.isEmpty) {
+    return 'No permissions';
+  }
+
+  return permissions.join(', ');
+}
+
+List<String> _readPermissions(Object? value) {
+  if (value is List) {
+    return value.map((item) => '$item').toList();
+  }
+
+  return [];
 }
 
 Future<Map<String, dynamic>?> _selectOperationalOrganisation(

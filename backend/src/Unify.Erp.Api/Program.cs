@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Unify.Erp.Api.Access;
 using Microsoft.IdentityModel.Tokens;
 using Unify.Erp.Api.Auth;
 using Unify.Erp.Api.Accounting;
@@ -203,6 +204,7 @@ app.MapGet("/api/v1/system/health", () =>
 .WithName("GetSystemHealth");
 
 app.MapAuthEndpoints();
+app.MapAccessEndpoints();
 app.MapPlatformEndpoints();
 app.MapCustomerEndpoints();
 app.MapSupplierEndpoints();

@@ -82,6 +82,73 @@ class ApiClient {
     return response.data ?? {};
   }
 
+  Future<List<Map<String, dynamic>>> listAccessPermissions(
+      String accessToken) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/access/permissions',
+      options: _auth(accessToken),
+    );
+
+    return (response.data ?? []).whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listAccessUsers(String accessToken) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/access/users',
+      options: _auth(accessToken),
+    );
+
+    return (response.data ?? []).whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> createAccessUser(
+    String accessToken, {
+    required String email,
+    required String displayName,
+    required String password,
+    required List<String> permissions,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/access/users',
+      data: {
+        'email': email,
+        'displayName': displayName,
+        'password': password,
+        'permissions': permissions,
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Future<Map<String, dynamic>> updateAccessUserPermissions(
+    String accessToken, {
+    required String userId,
+    required List<String> permissions,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/v1/access/users/$userId/permissions',
+      data: {'permissions': permissions},
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Future<Map<String, dynamic>> setAccessUserDisabled(
+    String accessToken, {
+    required String userId,
+    required bool disabled,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/access/users/$userId/${disabled ? 'disable' : 'enable'}',
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
   Future<List<Map<String, dynamic>>> listOrganisations(
       String accessToken) async {
     final response = await _dio.get<Map<String, dynamic>>(

@@ -84,6 +84,22 @@ dotnet build backend/Unify.Erp.sln --configuration Release
 dotnet test backend/Unify.Erp.sln --configuration Release --no-build
 ```
 
+## Open The UI
+
+```powershell
+docker compose up -d --build
+cd apps/unify_app
+..\..\flutter\bin\flutter.bat run -d chrome --dart-define=UNIFY_API_URL=http://localhost:5080
+```
+
+Or open the built web bundle after:
+
+```powershell
+..\..\flutter\bin\flutter.bat build web --dart-define=UNIFY_API_URL=http://localhost:5080
+cd build/web
+python -m http.server 5200 --bind 127.0.0.1
+```
+
 ## Production Configuration
 
 Production must provide the database connection string and JWT settings through environment variables or a secret manager. The API refuses to start in Production if required values are missing or development seed access is enabled. See [docs/deployment.md](docs/deployment.md).

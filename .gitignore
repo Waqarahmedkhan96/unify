@@ -19,6 +19,8 @@ obj/
 build/
 coverage/
 
+flutter/
+
 *.keystore
 *.jks
 *.pfx

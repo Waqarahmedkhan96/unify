@@ -7,6 +7,7 @@ using Unify.Erp.Domain.Customers;
 using Unify.Erp.Domain.Devices;
 using Unify.Erp.Domain.Organisations;
 using Unify.Erp.Domain.Sessions;
+using Unify.Erp.Domain.Suppliers;
 using Unify.Erp.Domain.Users;
 using Unify.Erp.Domain.Warehouses;
 using Unify.Erp.Infrastructure.Auth;
@@ -29,6 +30,8 @@ public sealed class ApplicationDbContext
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
 
     public DbSet<Customer> Customers => Set<Customer>();
+
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
 
     public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
 

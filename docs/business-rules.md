@@ -21,6 +21,8 @@
 - Preserve purchase history
 - Supplier balance from ledger
 - No duplicate payments
+- Unique supplier number per organisation
+- Supplier deactivation preserves the record for purchases, payments, and ledger history
 
 # Part 4 – Sales Rules
 - At least one item

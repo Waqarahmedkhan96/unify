@@ -51,3 +51,19 @@ Audit:
 
 ## Future
 Pen testing, dependency scanning, vulnerability management, encryption review.
+## Implemented Authorization Foundation
+
+Authenticated module APIs require permission claims in JWT access tokens.
+
+Current permission names:
+- `platform.manage`
+- `customers.manage`
+- `suppliers.manage`
+- `products.manage`
+- `inventory.manage`
+- `sales.manage`
+- `payments.manage`
+- `purchasing.manage`
+- `accounting.manage`
+
+The development seed user receives all current permissions for local testing. Production deployments must assign permissions through role administration rather than broad seed access.

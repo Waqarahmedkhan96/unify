@@ -46,7 +46,7 @@ if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
             };
         });
 
-    builder.Services.AddAuthorization();
+    builder.Services.AddPermissionPolicies();
 }
 
 var app = builder.Build();

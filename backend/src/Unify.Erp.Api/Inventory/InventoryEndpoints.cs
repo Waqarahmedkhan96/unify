@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Inventory;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Inventory;
 
@@ -11,6 +12,7 @@ public static class InventoryEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/inventory")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.InventoryManage)
             .WithTags("Inventory");
 
         group.MapPost("/adjustments", CreateAdjustmentAsync).WithName("CreateStockAdjustment");

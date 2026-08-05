@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Suppliers;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Suppliers;
 
@@ -11,6 +12,7 @@ public static class SupplierEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/suppliers")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.SuppliersManage)
             .WithTags("Suppliers");
 
         group.MapPost("/", CreateSupplierAsync)

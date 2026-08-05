@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Purchasing;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Purchasing;
 
@@ -11,6 +12,7 @@ public static class PurchasingEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/purchasing")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.PurchasingManage)
             .WithTags("Purchasing");
 
         group.MapPost("/orders", CreatePurchaseOrderAsync).WithName("CreatePurchaseOrder");

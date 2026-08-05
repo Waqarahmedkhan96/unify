@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Platform;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Platform;
 
@@ -11,6 +12,7 @@ public static class PlatformEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/platform")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.PlatformManage)
             .WithTags("Platform");
 
         group.MapPost("/organisations", CreateOrganisationAsync)

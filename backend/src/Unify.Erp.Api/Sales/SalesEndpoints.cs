@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Sales;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Sales;
 
@@ -11,6 +12,7 @@ public static class SalesEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/sales")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.SalesManage)
             .WithTags("Sales");
 
         group.MapPost("/", CreateSaleAsync).WithName("CreateSale");

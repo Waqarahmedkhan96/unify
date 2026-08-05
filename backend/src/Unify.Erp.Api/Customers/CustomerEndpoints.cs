@@ -1,5 +1,6 @@
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Customers;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Customers;
 
@@ -11,6 +12,7 @@ public static class CustomerEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/customers")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.CustomersManage)
             .WithTags("Customers");
 
         group.MapPost("/", CreateCustomerAsync)

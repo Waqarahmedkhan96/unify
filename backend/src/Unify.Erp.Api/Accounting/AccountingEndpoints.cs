@@ -1,4 +1,5 @@
 using Unify.Erp.Application.Accounting;
+using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Accounting;
 
 namespace Unify.Erp.Api.Accounting;
@@ -9,6 +10,7 @@ public static class AccountingEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/accounting")
             .RequireAuthorization()
+            .RequireAuthorization(PermissionNames.AccountingManage)
             .WithTags("Accounting");
 
         group.MapPost("/accounts", CreateAccountAsync).WithName("CreateAccount");

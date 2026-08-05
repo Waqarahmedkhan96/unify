@@ -1,0 +1,21 @@
+name: Flutter CI
+
+on:
+  push:
+    paths:
+      - "apps/unify_app/**"
+      - ".github/workflows/flutter-ci.yml"
+  pull_request:
+    paths:
+      - "apps/unify_app/**"
+      - ".github/workflows/flutter-ci.yml"
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check app scaffold instructions
+        run: test -f apps/unify_app/README.md

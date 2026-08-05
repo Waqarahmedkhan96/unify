@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Unify.Erp.Application\Unify.Erp.Application.csproj" />
+    <ProjectReference Include="..\Unify.Erp.Infrastructure\Unify.Erp.Infrastructure.csproj" />
+    <ProjectReference Include="..\Unify.Erp.Contracts\Unify.Erp.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

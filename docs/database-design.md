@@ -174,6 +174,14 @@ Implemented inventory foundation:
 - FiscalPeriod
 - Account
 
+Implemented accounting foundation:
+- `accounts`
+- `fiscal_periods`
+- `journal_entries`
+- `journal_lines`
+- Journals must balance before posting
+- Journals require an open fiscal period
+
 ## Sync
 - SyncOperation
 - ProcessedSyncOperation

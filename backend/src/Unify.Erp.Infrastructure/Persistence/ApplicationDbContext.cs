@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Unify.Erp.Domain.Access;
+using Unify.Erp.Domain.Accounting;
 using Unify.Erp.Domain.Branches;
 using Unify.Erp.Domain.Customers;
 using Unify.Erp.Domain.Devices;
@@ -57,6 +58,14 @@ public sealed class ApplicationDbContext
     public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
 
     public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
+
+    public DbSet<Account> Accounts => Set<Account>();
+
+    public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
+
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+
+    public DbSet<JournalLine> JournalLines => Set<JournalLine>();
 
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
 

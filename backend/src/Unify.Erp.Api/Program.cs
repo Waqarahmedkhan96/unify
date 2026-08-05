@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Unify.Erp.Api.Auth;
+using Unify.Erp.Api.Accounting;
 using Unify.Erp.Api.Common;
 using Unify.Erp.Api.Customers;
 using Unify.Erp.Api.Inventory;
@@ -109,6 +110,7 @@ app.MapInventoryEndpoints();
 app.MapSalesEndpoints();
 app.MapPaymentEndpoints();
 app.MapPurchasingEndpoints();
+app.MapAccountingEndpoints();
 
 app.Run();
 

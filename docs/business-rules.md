@@ -74,6 +74,9 @@
 - Posted journals immutable
 - Closed periods reject posting
 - Reversals only
+- Journal entries require at least two lines
+- Account codes are unique per organisation
+- Fiscal periods cannot overlap
 
 # Part 9 – Security Rules
 - Disabled users cannot log in

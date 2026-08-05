@@ -78,7 +78,11 @@ Resources:
 - GET /api/v1/inventory/balances?organisationId={organisationId}&warehouseId={warehouseId}
 - GET /api/v1/inventory/movements?organisationId={organisationId}&warehouseId={warehouseId}&productId={productId}
 - expenses
-- accounting
+- POST /api/v1/accounting/accounts
+- GET /api/v1/accounting/accounts?organisationId={organisationId}
+- POST /api/v1/accounting/fiscal-periods
+- GET /api/v1/accounting/fiscal-periods?organisationId={organisationId}
+- POST /api/v1/accounting/journals
 - reports
 - deliveries
 

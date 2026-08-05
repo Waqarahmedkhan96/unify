@@ -30,6 +30,18 @@ class ModulePage extends StatelessWidget {
       return const _SalesWorkspace();
     }
 
+    if (module.id == 'inventory') {
+      return const _InventoryWorkspace();
+    }
+
+    if (module.id == 'purchasing') {
+      return const _PurchasingWorkspace();
+    }
+
+    if (module.id == 'accounting') {
+      return const _AccountingWorkspace();
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -1380,6 +1392,562 @@ class _SettingsWorkspace extends ConsumerStatefulWidget {
   ConsumerState<_SettingsWorkspace> createState() => _SettingsWorkspaceState();
 }
 
+class _InventoryWorkspace extends ConsumerStatefulWidget {
+  const _InventoryWorkspace();
+
+  @override
+  ConsumerState<_InventoryWorkspace> createState() =>
+      _InventoryWorkspaceState();
+}
+
+class _InventoryWorkspaceState extends ConsumerState<_InventoryWorkspace> {
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic>? _organisation;
+  Map<String, dynamic>? _warehouse;
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _balances = [];
+  List<Map<String, dynamic>> _movements = [];
+  StreamSubscription<OperationChanged>? _realtimeSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _realtimeSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stockTotal = _balances.fold<double>(
+        0, (sum, item) => sum + _asDouble(item['quantityOnHand']));
+
+    return _LivePageFrame(
+      title: 'Inventory',
+      subtitle: 'Live stock balances, movements, and stock adjustments.',
+      icon: Icons.inventory_2,
+      color: AppColors.success,
+      loading: _loading,
+      error: _error,
+      onRefresh: _load,
+      actions: [
+        FilledButton.icon(
+          onPressed: _loading || _warehouse == null || _products.isEmpty
+              ? null
+              : _openAdjustment,
+          icon: const Icon(Icons.tune),
+          label: const Text('Adjust stock'),
+        ),
+      ],
+      child: Column(
+        children: [
+          _ContextStrip(organisation: _organisation, warehouse: _warehouse),
+          const SizedBox(height: AppSpacing.md),
+          GridView.count(
+            crossAxisCount: MediaQuery.sizeOf(context).width < 900 ? 1 : 3,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
+            childAspectRatio: 2.2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _SummaryTile('Stock lines', '${_balances.length}',
+                  Icons.list_alt_outlined, AppColors.success),
+              _SummaryTile('Quantity on hand', stockTotal.toStringAsFixed(0),
+                  Icons.inventory_outlined, AppColors.cobalt),
+              _SummaryTile('Movements', '${_movements.length}', Icons.swap_vert,
+                  AppColors.coral),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText: 'No stock balances found.',
+            columns: const ['Product', 'Product ID', 'Quantity', 'Updated'],
+            rows: [
+              for (final balance in _balances)
+                [
+                  _nameFor(_products, '${balance['productId']}', 'name'),
+                  '${balance['productId']}',
+                  _asDouble(balance['quantityOnHand']).toStringAsFixed(2),
+                  _shortDate(balance['updatedAtUtc']),
+                ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText: 'No stock movements found.',
+            columns: const ['Date', 'Product', 'Type', 'Qty', 'Reference'],
+            rows: [
+              for (final movement in _movements)
+                [
+                  _shortDate(movement['occurredAtUtc']),
+                  _nameFor(_products, '${movement['productId']}', 'name'),
+                  '${movement['movementType']}',
+                  _asDouble(movement['signedQuantity']).toStringAsFixed(2),
+                  '${movement['referenceType'] ?? ''}',
+                ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _load() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Please sign in again.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final organisations = await api.listOrganisations(token);
+      final organisation = await _selectOperationalOrganisation(
+        organisations,
+        (organisationId) => api.listWarehouses(token, organisationId),
+      );
+      if (organisation == null) {
+        throw StateError('No organisation exists.');
+      }
+
+      final organisationId = '${organisation['id']}';
+      final warehouses = await api.listWarehouses(token, organisationId);
+      final warehouse = warehouses.isNotEmpty ? warehouses.first : null;
+      final products = await api.listProducts(token, organisationId);
+      final balances = await api.listInventoryBalances(
+        token,
+        organisationId,
+        warehouseId: warehouse == null ? null : '${warehouse['id']}',
+      );
+      final movements = await api.listInventoryMovements(
+        token,
+        organisationId,
+        warehouseId: warehouse == null ? null : '${warehouse['id']}',
+      );
+      await _connectRealtime(token, organisationId);
+
+      setState(() {
+        _organisation = organisation;
+        _warehouse = warehouse;
+        _products = products;
+        _balances = balances;
+        _movements = movements;
+      });
+    } catch (error) {
+      setState(() => _error = 'Could not load inventory: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _connectRealtime(String token, String organisationId) async {
+    await ref
+        .read(realtimeServiceProvider)
+        .connect(accessToken: token, organisationId: organisationId);
+    _realtimeSubscription ??=
+        ref.read(realtimeServiceProvider).changes.listen((event) {
+      if (mounted &&
+          event.organisationId == organisationId &&
+          event.module == 'inventory') {
+        _load();
+      }
+    });
+  }
+
+  Future<void> _openAdjustment() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _StockAdjustmentDialog(
+        organisation: _organisation,
+        warehouse: _warehouse,
+        products: _products,
+      ),
+    );
+    if (created == true) {
+      await _load();
+    }
+  }
+}
+
+class _PurchasingWorkspace extends ConsumerStatefulWidget {
+  const _PurchasingWorkspace();
+
+  @override
+  ConsumerState<_PurchasingWorkspace> createState() =>
+      _PurchasingWorkspaceState();
+}
+
+class _PurchasingWorkspaceState extends ConsumerState<_PurchasingWorkspace> {
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic>? _organisation;
+  Map<String, dynamic>? _branch;
+  List<Map<String, dynamic>> _suppliers = [];
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _orders = [];
+  StreamSubscription<OperationChanged>? _realtimeSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _realtimeSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _orders.fold<double>(
+        0, (sum, order) => sum + _asDouble(order['grandTotal']));
+
+    return _LivePageFrame(
+      title: 'Purchasing',
+      subtitle: 'Live suppliers and purchase orders.',
+      icon: Icons.shopping_cart,
+      color: AppColors.coral,
+      loading: _loading,
+      error: _error,
+      onRefresh: _load,
+      actions: [
+        OutlinedButton.icon(
+          onPressed: _loading || _organisation == null ? null : _openSupplier,
+          icon: const Icon(Icons.business_outlined),
+          label: const Text('New supplier'),
+        ),
+        FilledButton.icon(
+          onPressed: _loading ||
+                  _branch == null ||
+                  _suppliers.isEmpty ||
+                  _products.isEmpty
+              ? null
+              : _openPurchaseOrder,
+          icon: const Icon(Icons.add_shopping_cart),
+          label: const Text('New PO'),
+        ),
+      ],
+      child: Column(
+        children: [
+          _ContextStrip(organisation: _organisation, branch: _branch),
+          const SizedBox(height: AppSpacing.md),
+          GridView.count(
+            crossAxisCount: MediaQuery.sizeOf(context).width < 900 ? 1 : 3,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
+            childAspectRatio: 2.2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _SummaryTile('Purchase orders', '${_orders.length}',
+                  Icons.receipt_long_outlined, AppColors.coral),
+              _SummaryTile('Suppliers', '${_suppliers.length}',
+                  Icons.business_outlined, AppColors.royalPurple),
+              _SummaryTile('Ordered value', _money(total),
+                  Icons.payments_outlined, AppColors.cobalt),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText: 'No purchase orders yet.',
+            columns: const ['Order', 'Date', 'Supplier', 'Total', 'Status'],
+            rows: [
+              for (final order in _orders)
+                [
+                  '${order['orderNumber'] ?? ''}',
+                  _shortDate(order['orderDateUtc']),
+                  _nameFor(_suppliers, '${order['supplierId']}', 'displayName'),
+                  _money(order['grandTotal']),
+                  '${order['status'] ?? ''}',
+                ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _load() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Please sign in again.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final organisations = await api.listOrganisations(token);
+      final organisation = await _selectOperationalOrganisation(
+        organisations,
+        (organisationId) => api.listBranches(token, organisationId),
+      );
+      if (organisation == null) {
+        throw StateError('No organisation exists.');
+      }
+
+      final organisationId = '${organisation['id']}';
+      final branches = await api.listBranches(token, organisationId);
+      final suppliers = await api.listSuppliers(token, organisationId);
+      final products = await api.listProducts(token, organisationId);
+      final orders = await api.listPurchaseOrders(token, organisationId);
+      await _connectRealtime(token, organisationId);
+
+      setState(() {
+        _organisation = organisation;
+        _branch = branches.isNotEmpty ? branches.first : null;
+        _suppliers = suppliers;
+        _products = products;
+        _orders = orders;
+      });
+    } catch (error) {
+      setState(() => _error = 'Could not load purchasing: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _connectRealtime(String token, String organisationId) async {
+    await ref
+        .read(realtimeServiceProvider)
+        .connect(accessToken: token, organisationId: organisationId);
+    _realtimeSubscription ??=
+        ref.read(realtimeServiceProvider).changes.listen((event) {
+      if (mounted &&
+          event.organisationId == organisationId &&
+          event.module == 'purchasing') {
+        _load();
+      }
+    });
+  }
+
+  Future<void> _openSupplier() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CreateSupplierDialog(organisation: _organisation),
+    );
+    if (created == true) {
+      await _load();
+    }
+  }
+
+  Future<void> _openPurchaseOrder() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CreatePurchaseOrderDialog(
+        organisation: _organisation,
+        branch: _branch,
+        suppliers: _suppliers,
+        products: _products,
+      ),
+    );
+    if (created == true) {
+      await _load();
+    }
+  }
+}
+
+class _AccountingWorkspace extends ConsumerStatefulWidget {
+  const _AccountingWorkspace();
+
+  @override
+  ConsumerState<_AccountingWorkspace> createState() =>
+      _AccountingWorkspaceState();
+}
+
+class _AccountingWorkspaceState extends ConsumerState<_AccountingWorkspace> {
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic>? _organisation;
+  List<Map<String, dynamic>> _accounts = [];
+  List<Map<String, dynamic>> _periods = [];
+  StreamSubscription<OperationChanged>? _realtimeSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _realtimeSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _LivePageFrame(
+      title: 'Accounting',
+      subtitle: 'Live chart of accounts, fiscal periods, and journals.',
+      icon: Icons.account_balance,
+      color: AppColors.metallicGold,
+      loading: _loading,
+      error: _error,
+      onRefresh: _load,
+      actions: [
+        OutlinedButton.icon(
+          onPressed: _loading || _organisation == null ? null : _openAccount,
+          icon: const Icon(Icons.account_tree_outlined),
+          label: const Text('New account'),
+        ),
+        FilledButton.icon(
+          onPressed: _loading || _organisation == null || _accounts.length < 2
+              ? null
+              : _openJournal,
+          icon: const Icon(Icons.post_add),
+          label: const Text('New journal'),
+        ),
+      ],
+      child: Column(
+        children: [
+          _ContextStrip(organisation: _organisation),
+          const SizedBox(height: AppSpacing.md),
+          GridView.count(
+            crossAxisCount: MediaQuery.sizeOf(context).width < 900 ? 1 : 3,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
+            childAspectRatio: 2.2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _SummaryTile('Accounts', '${_accounts.length}',
+                  Icons.account_tree_outlined, AppColors.metallicGold),
+              _SummaryTile('Fiscal periods', '${_periods.length}',
+                  Icons.calendar_month_outlined, AppColors.cobalt),
+              _SummaryTile('Controls', 'Balanced', Icons.verified_user_outlined,
+                  AppColors.success),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText: 'No accounts yet.',
+            columns: const ['Code', 'Name', 'Type', 'Status'],
+            rows: [
+              for (final account in _accounts)
+                [
+                  '${account['code'] ?? ''}',
+                  '${account['name'] ?? ''}',
+                  '${account['type'] ?? ''}',
+                  '${account['status'] ?? ''}',
+                ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _load() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Please sign in again.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final organisations = await api.listOrganisations(token);
+      final organisation = organisations.where((item) {
+            return '${item['displayName']}' == 'Main Organisation';
+          }).firstOrNull ??
+          (organisations.isNotEmpty ? organisations.first : null);
+      if (organisation == null) {
+        throw StateError('No organisation exists.');
+      }
+
+      final organisationId = '${organisation['id']}';
+      final accounts = await api.listAccounts(token, organisationId);
+      final periods = await api.listFiscalPeriods(token, organisationId);
+      await _connectRealtime(token, organisationId);
+
+      setState(() {
+        _organisation = organisation;
+        _accounts = accounts;
+        _periods = periods;
+      });
+    } catch (error) {
+      setState(() => _error = 'Could not load accounting: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _connectRealtime(String token, String organisationId) async {
+    await ref
+        .read(realtimeServiceProvider)
+        .connect(accessToken: token, organisationId: organisationId);
+    _realtimeSubscription ??=
+        ref.read(realtimeServiceProvider).changes.listen((event) {
+      if (mounted &&
+          event.organisationId == organisationId &&
+          event.module == 'accounting') {
+        _load();
+      }
+    });
+  }
+
+  Future<void> _openAccount() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CreateAccountDialog(organisation: _organisation),
+    );
+    if (created == true) {
+      await _load();
+    }
+  }
+
+  Future<void> _openJournal() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CreateJournalDialog(
+        organisation: _organisation,
+        accounts: _accounts,
+      ),
+    );
+    if (created == true) {
+      await _load();
+    }
+  }
+}
+
 class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
   final _currentPassword = TextEditingController();
   final _newPassword = TextEditingController();
@@ -1692,6 +2260,668 @@ class _AccessManagementPanel extends StatelessWidget {
   }
 }
 
+class _StockAdjustmentDialog extends ConsumerStatefulWidget {
+  const _StockAdjustmentDialog({
+    required this.organisation,
+    required this.warehouse,
+    required this.products,
+  });
+
+  final Map<String, dynamic>? organisation;
+  final Map<String, dynamic>? warehouse;
+  final List<Map<String, dynamic>> products;
+
+  @override
+  ConsumerState<_StockAdjustmentDialog> createState() =>
+      _StockAdjustmentDialogState();
+}
+
+class _StockAdjustmentDialogState
+    extends ConsumerState<_StockAdjustmentDialog> {
+  String? _productId;
+  String _movementType = 'AdjustmentIn';
+  final _quantity = TextEditingController(text: '1');
+  final _notes = TextEditingController(text: 'Manual stock adjustment');
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _productId =
+        widget.products.isNotEmpty ? '${widget.products.first['id']}' : null;
+  }
+
+  @override
+  void dispose() {
+    _quantity.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Adjust stock'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _productId,
+              items: [
+                for (final product in widget.products)
+                  DropdownMenuItem(
+                    value: '${product['id']}',
+                    child:
+                        Text('${product['productCode']} - ${product['name']}'),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _productId = value),
+              decoration: const InputDecoration(labelText: 'Product'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'AdjustmentIn', label: Text('Add')),
+                ButtonSegment(value: 'AdjustmentOut', label: Text('Remove')),
+              ],
+              selected: {_movementType},
+              onSelectionChanged: (value) =>
+                  setState(() => _movementType = value.first),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _quantity,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Quantity'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _notes,
+              decoration: const InputDecoration(labelText: 'Notes'),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Post')),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    final organisationId = '${widget.organisation?['id'] ?? ''}';
+    final warehouseId = '${widget.warehouse?['id'] ?? ''}';
+    final quantity = double.tryParse(_quantity.text);
+    if (token == null ||
+        organisationId.isEmpty ||
+        warehouseId.isEmpty ||
+        _productId == null ||
+        quantity == null ||
+        quantity <= 0) {
+      setState(() =>
+          _error = 'Product, warehouse, and positive quantity are required.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createStockAdjustment(
+            token,
+            organisationId: organisationId,
+            warehouseId: warehouseId,
+            productId: _productId!,
+            movementType: _movementType,
+            quantity: quantity,
+            notes: _notes.text.trim(),
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Stock adjustment failed: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+class _CreateSupplierDialog extends ConsumerStatefulWidget {
+  const _CreateSupplierDialog({required this.organisation});
+
+  final Map<String, dynamic>? organisation;
+
+  @override
+  ConsumerState<_CreateSupplierDialog> createState() =>
+      _CreateSupplierDialogState();
+}
+
+class _CreateSupplierDialogState extends ConsumerState<_CreateSupplierDialog> {
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New supplier'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Supplier name')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _phone,
+                decoration: const InputDecoration(labelText: 'Phone')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email')),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Save')),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    final organisationId = '${widget.organisation?['id'] ?? ''}';
+    if (token == null || organisationId.isEmpty || _name.text.trim().isEmpty) {
+      setState(() => _error = 'Supplier name is required.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createSupplier(
+            token,
+            organisationId: organisationId,
+            supplierNumber: 'S-${DateTime.now().millisecondsSinceEpoch}',
+            displayName: _name.text.trim(),
+            phone: _phone.text.trim(),
+            email: _email.text.trim(),
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Supplier could not be saved: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+class _CreatePurchaseOrderDialog extends ConsumerStatefulWidget {
+  const _CreatePurchaseOrderDialog({
+    required this.organisation,
+    required this.branch,
+    required this.suppliers,
+    required this.products,
+  });
+
+  final Map<String, dynamic>? organisation;
+  final Map<String, dynamic>? branch;
+  final List<Map<String, dynamic>> suppliers;
+  final List<Map<String, dynamic>> products;
+
+  @override
+  ConsumerState<_CreatePurchaseOrderDialog> createState() =>
+      _CreatePurchaseOrderDialogState();
+}
+
+class _CreatePurchaseOrderDialogState
+    extends ConsumerState<_CreatePurchaseOrderDialog> {
+  String? _supplierId;
+  String? _productId;
+  final _quantity = TextEditingController(text: '1');
+  final _unitCost = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _supplierId =
+        widget.suppliers.isNotEmpty ? '${widget.suppliers.first['id']}' : null;
+    _productId =
+        widget.products.isNotEmpty ? '${widget.products.first['id']}' : null;
+    if (widget.products.isNotEmpty) {
+      _unitCost.text = '${widget.products.first['purchasePrice'] ?? 0}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _quantity.dispose();
+    _unitCost.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New purchase order'),
+      content: SizedBox(
+        width: 560,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _supplierId,
+              items: [
+                for (final supplier in widget.suppliers)
+                  DropdownMenuItem(
+                      value: '${supplier['id']}',
+                      child: Text('${supplier['displayName']}')),
+              ],
+              onChanged: (value) => setState(() => _supplierId = value),
+              decoration: const InputDecoration(labelText: 'Supplier'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: _productId,
+              items: [
+                for (final product in widget.products)
+                  DropdownMenuItem(
+                      value: '${product['id']}',
+                      child: Text(
+                          '${product['productCode']} - ${product['name']}')),
+              ],
+              onChanged: (value) {
+                final product = widget.products
+                    .where((item) => '${item['id']}' == value)
+                    .firstOrNull;
+                setState(() {
+                  _productId = value;
+                  _unitCost.text =
+                      '${product?['purchasePrice'] ?? _unitCost.text}';
+                });
+              },
+              decoration: const InputDecoration(labelText: 'Product'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _quantity,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Quantity')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _unitCost,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Unit cost')),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Create')),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    final organisationId = '${widget.organisation?['id'] ?? ''}';
+    final branchId = '${widget.branch?['id'] ?? ''}';
+    final quantity = double.tryParse(_quantity.text);
+    final unitCost = double.tryParse(_unitCost.text);
+    final product = widget.products
+        .where((item) => '${item['id']}' == _productId)
+        .firstOrNull;
+    if (token == null ||
+        organisationId.isEmpty ||
+        branchId.isEmpty ||
+        _supplierId == null ||
+        _productId == null ||
+        quantity == null ||
+        unitCost == null ||
+        quantity <= 0 ||
+        unitCost < 0) {
+      setState(
+          () => _error = 'Supplier, product, quantity, and cost are required.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createPurchaseOrder(
+            token,
+            organisationId: organisationId,
+            branchId: branchId,
+            supplierId: _supplierId!,
+            productId: _productId!,
+            description: '${product?['name'] ?? 'Purchase item'}',
+            quantity: quantity,
+            unitCost: unitCost,
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Purchase order could not be created: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+class _CreateAccountDialog extends ConsumerStatefulWidget {
+  const _CreateAccountDialog({required this.organisation});
+
+  final Map<String, dynamic>? organisation;
+
+  @override
+  ConsumerState<_CreateAccountDialog> createState() =>
+      _CreateAccountDialogState();
+}
+
+class _CreateAccountDialogState extends ConsumerState<_CreateAccountDialog> {
+  final _code = TextEditingController();
+  final _name = TextEditingController();
+  String _type = 'Asset';
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New account'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+                controller: _code,
+                decoration: const InputDecoration(labelText: 'Code')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Name')),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: _type,
+              items: const [
+                DropdownMenuItem(value: 'Asset', child: Text('Asset')),
+                DropdownMenuItem(value: 'Liability', child: Text('Liability')),
+                DropdownMenuItem(value: 'Equity', child: Text('Equity')),
+                DropdownMenuItem(value: 'Revenue', child: Text('Revenue')),
+                DropdownMenuItem(value: 'Expense', child: Text('Expense')),
+              ],
+              onChanged: (value) => setState(() => _type = value ?? _type),
+              decoration: const InputDecoration(labelText: 'Type'),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Save')),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    final organisationId = '${widget.organisation?['id'] ?? ''}';
+    if (token == null ||
+        organisationId.isEmpty ||
+        _code.text.trim().isEmpty ||
+        _name.text.trim().isEmpty) {
+      setState(() => _error = 'Code and name are required.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createAccount(
+            token,
+            organisationId: organisationId,
+            code: _code.text.trim(),
+            name: _name.text.trim(),
+            type: _type,
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Account could not be saved: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+class _CreateJournalDialog extends ConsumerStatefulWidget {
+  const _CreateJournalDialog(
+      {required this.organisation, required this.accounts});
+
+  final Map<String, dynamic>? organisation;
+  final List<Map<String, dynamic>> accounts;
+
+  @override
+  ConsumerState<_CreateJournalDialog> createState() =>
+      _CreateJournalDialogState();
+}
+
+class _CreateJournalDialogState extends ConsumerState<_CreateJournalDialog> {
+  String? _debitAccountId;
+  String? _creditAccountId;
+  final _amount = TextEditingController(text: '1000');
+  final _description = TextEditingController(text: 'Manual journal');
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _debitAccountId =
+        widget.accounts.isNotEmpty ? '${widget.accounts.first['id']}' : null;
+    _creditAccountId = widget.accounts.length > 1
+        ? '${widget.accounts[1]['id']}'
+        : _debitAccountId;
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accountItems = [
+      for (final account in widget.accounts)
+        DropdownMenuItem<String>(
+          value: '${account['id']}',
+          child: Text('${account['code']} - ${account['name']}'),
+        )
+    ];
+
+    return AlertDialog(
+      title: const Text('New journal'),
+      content: SizedBox(
+        width: 560,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _debitAccountId,
+              items: accountItems,
+              onChanged: (value) => setState(() => _debitAccountId = value),
+              decoration: const InputDecoration(labelText: 'Debit account'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: _creditAccountId,
+              items: accountItems,
+              onChanged: (value) => setState(() => _creditAccountId = value),
+              decoration: const InputDecoration(labelText: 'Credit account'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _amount,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Amount')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _description,
+                decoration: const InputDecoration(labelText: 'Description')),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Post')),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    final organisationId = '${widget.organisation?['id'] ?? ''}';
+    final amount = double.tryParse(_amount.text);
+    if (token == null ||
+        organisationId.isEmpty ||
+        _debitAccountId == null ||
+        _creditAccountId == null ||
+        _debitAccountId == _creditAccountId ||
+        amount == null ||
+        amount <= 0) {
+      setState(() =>
+          _error = 'Choose two different accounts and a positive amount.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createJournal(
+            token,
+            organisationId: organisationId,
+            debitAccountId: _debitAccountId!,
+            creditAccountId: _creditAccountId!,
+            description: _description.text.trim().isEmpty
+                ? 'Manual journal'
+                : _description.text.trim(),
+            amount: amount,
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Journal could not be posted: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
 class _CreateAccessUserDialog extends ConsumerStatefulWidget {
   const _CreateAccessUserDialog({required this.permissions});
 
@@ -1947,6 +3177,10 @@ List<String> _readPermissions(Object? value) {
   }
 
   return [];
+}
+
+String _nameFor(List<Map<String, dynamic>> records, String id, String field) {
+  return '${records.where((item) => '${item['id']}' == id).firstOrNull?[field] ?? id}';
 }
 
 Future<Map<String, dynamic>?> _selectOperationalOrganisation(

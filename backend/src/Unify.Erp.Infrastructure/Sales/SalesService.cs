@@ -3,6 +3,7 @@ using Unify.Erp.Application.Sales;
 using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Sales;
 using Unify.Erp.Domain.Customers;
+using Unify.Erp.Domain.Finance;
 using Unify.Erp.Domain.Inventory;
 using Unify.Erp.Domain.Products;
 using Unify.Erp.Domain.Sales;
@@ -106,6 +107,16 @@ public sealed class SalesService : ISalesService
 
         _dbContext.Sales.Add(sale);
         _dbContext.SaleItems.AddRange(saleItems);
+        _dbContext.CustomerLedgerEntries.Add(new CustomerLedgerEntry(
+            Guid.NewGuid(),
+            request.OrganisationId,
+            request.CustomerId,
+            CustomerLedgerEntryType.SaleInvoice,
+            "Sale",
+            sale.Id,
+            sale.GrandTotal,
+            0,
+            sale.SaleDateUtc));
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 

@@ -5,6 +5,7 @@ using Unify.Erp.Domain.Access;
 using Unify.Erp.Domain.Branches;
 using Unify.Erp.Domain.Customers;
 using Unify.Erp.Domain.Devices;
+using Unify.Erp.Domain.Finance;
 using Unify.Erp.Domain.Inventory;
 using Unify.Erp.Domain.Organisations;
 using Unify.Erp.Domain.Products;
@@ -49,6 +50,12 @@ public sealed class ApplicationDbContext
     public DbSet<Sale> Sales => Set<Sale>();
 
     public DbSet<SaleItem> SaleItems => Set<SaleItem>();
+
+    public DbSet<CustomerLedgerEntry> CustomerLedgerEntries => Set<CustomerLedgerEntry>();
+
+    public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
+
+    public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
 
     public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
 

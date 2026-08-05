@@ -66,7 +66,9 @@ Resources:
 - POST /api/v1/sales
 - GET /api/v1/sales?organisationId={organisationId}&customerId={customerId}
 - GET /api/v1/sales/{saleId}?organisationId={organisationId}
-- payments
+- POST /api/v1/payments/customers
+- GET /api/v1/payments/customers/{customerId}/balance?organisationId={organisationId}
+- GET /api/v1/payments/customers/{customerId}/ledger?organisationId={organisationId}
 - purchases
 - POST /api/v1/inventory/adjustments
 - POST /api/v1/inventory/transfers

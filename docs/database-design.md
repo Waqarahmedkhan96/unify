@@ -79,6 +79,14 @@ Implemented customer foundation:
 - Decimal credit limit
 - Deactivation instead of hard delete
 
+Implemented customer receivables foundation:
+- `customer_ledger_entries`
+- `customer_payments`
+- `payment_allocations`
+- Sales post debit ledger entries
+- Customer payments post credit ledger entries
+- Customer balances are derived from ledger entries
+
 ## Suppliers
 - Supplier
 - SupplierAddress

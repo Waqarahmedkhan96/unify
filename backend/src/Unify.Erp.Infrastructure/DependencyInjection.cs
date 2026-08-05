@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Unify.Erp.Application.Auth;
 using Unify.Erp.Application.Customers;
 using Unify.Erp.Application.Inventory;
+using Unify.Erp.Application.Payments;
 using Unify.Erp.Application.Platform;
 using Unify.Erp.Application.Products;
 using Unify.Erp.Application.Sales;
@@ -15,6 +16,7 @@ using Unify.Erp.Infrastructure.Identity;
 using Unify.Erp.Infrastructure.Inventory;
 using Unify.Erp.Infrastructure.Persistence;
 using Unify.Erp.Infrastructure.Platform;
+using Unify.Erp.Infrastructure.Payments;
 using Unify.Erp.Infrastructure.Products;
 using Unify.Erp.Infrastructure.Sales;
 using Unify.Erp.Infrastructure.Seed;
@@ -39,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IProductCatalogService, ProductCatalogService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ISalesService, SalesService>();
+        services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
 
         var connectionString = configuration.GetConnectionString("Default");
 

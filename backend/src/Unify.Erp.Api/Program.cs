@@ -24,6 +24,8 @@ using Unify.Erp.Infrastructure.Auth;
 using Unify.Erp.Infrastructure.Deployment;
 using Unify.Erp.Infrastructure.Seed;
 
+const string ApiCorsPolicy = "UnifyApiCors";
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
@@ -35,6 +37,7 @@ builder.Services.AddProblemDetails();
 
 ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment.EnvironmentName);
 
+var corsOptions = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>() ?? new CorsOptions();
 var rateLimitingOptions = builder.Configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>()
     ?? new RateLimitingOptions();
 var httpsOptions = builder.Configuration.GetSection(HttpsOptions.SectionName).Get<HttpsOptions>() ?? new HttpsOptions();
@@ -52,6 +55,19 @@ if (builder.Environment.IsProduction())
     {
         options.IncludeSubDomains = true;
         options.MaxAge = TimeSpan.FromDays(Math.Max(1, httpsOptions.HstsDays));
+    });
+}
+
+if (corsOptions.AllowedOrigins.Length > 0)
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy(
+            ApiCorsPolicy,
+            policy => policy
+                .WithOrigins(corsOptions.AllowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod());
     });
 }
 
@@ -136,6 +152,11 @@ app.UseExceptionHandler(errorApp =>
 });
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+
+if (corsOptions.AllowedOrigins.Length > 0)
+{
+    app.UseCors(ApiCorsPolicy);
+}
 
 if (app.Environment.IsProduction())
 {

@@ -14,6 +14,7 @@ services:
       RateLimiting__WindowSeconds: ${RateLimiting__WindowSeconds:-60}
       Https__RequireHttps: ${Https__RequireHttps:-true}
       Https__HstsDays: ${Https__HstsDays:-365}
+      Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0}
       PasswordReset__FrontendBaseUrl: ${PasswordReset__FrontendBaseUrl}
       PasswordReset__SenderEmail: ${PasswordReset__SenderEmail}
       PasswordReset__SmtpHost: ${PasswordReset__SmtpHost}

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Unify.Erp.Domain.Access;
 using Unify.Erp.Domain.Branches;
+using Unify.Erp.Domain.Customers;
 using Unify.Erp.Domain.Devices;
 using Unify.Erp.Domain.Organisations;
 using Unify.Erp.Domain.Sessions;
@@ -26,6 +27,8 @@ public sealed class ApplicationDbContext
     public DbSet<Branch> Branches => Set<Branch>();
 
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+
+    public DbSet<Customer> Customers => Set<Customer>();
 
     public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
 

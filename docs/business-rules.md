@@ -14,6 +14,8 @@
 - Preserve history
 - Credit limit enforcement
 - Statements from ledger
+- Customer creation requires a valid branch in the same organisation
+- Customer deactivation preserves the record for sales, payments, and ledger history
 
 # Part 3 – Supplier Rules
 - Preserve purchase history

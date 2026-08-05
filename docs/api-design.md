@@ -45,7 +45,10 @@ Endpoints grouped by:
 
 # Part 4 - ERP Modules
 Resources:
-- customers
+- GET /api/v1/customers?organisationId={organisationId}&branchId={branchId}&search={search}
+- POST /api/v1/customers
+- GET /api/v1/customers/{customerId}?organisationId={organisationId}
+- POST /api/v1/customers/{customerId}/deactivate?organisationId={organisationId}
 - suppliers
 - products
 - price-lists

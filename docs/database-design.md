@@ -70,6 +70,15 @@ PostgreSQL stores authoritative business data.
 - CustomerContact
 - CustomerLedgerEntry
 
+Implemented customer foundation:
+- `customers`
+- Tenant scoped by `organisation_id`
+- Branch scoped by `branch_id`
+- Unique `(organisation_id, customer_number)`
+- Restricted foreign keys to organisation and branch
+- Decimal credit limit
+- Deactivation instead of hard delete
+
 ## Suppliers
 - Supplier
 - SupplierAddress

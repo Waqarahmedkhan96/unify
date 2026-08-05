@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Unify.Erp.Api.Auth;
 using Unify.Erp.Api.Common;
+using Unify.Erp.Api.Customers;
 using Unify.Erp.Api.Platform;
 using Unify.Erp.Application;
 using Unify.Erp.Contracts.System;
@@ -95,6 +96,7 @@ app.MapGet("/api/v1/system/health", () =>
 
 app.MapAuthEndpoints();
 app.MapPlatformEndpoints();
+app.MapCustomerEndpoints();
 
 app.Run();
 

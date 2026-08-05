@@ -1,4 +1,6 @@
+using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Platform;
+using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Platform;
 
 namespace Unify.Erp.Api.Platform;
@@ -34,9 +36,16 @@ public static class PlatformEndpoints
 
     private static async Task<IResult> CreateOrganisationAsync(
         CreateOrganisationRequest request,
+        HttpContext httpContext,
         IOrganisationService organisationService,
         CancellationToken cancellationToken)
     {
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
+        {
+            return validationResult.ToProblem(httpContext);
+        }
+
         try
         {
             var response = await organisationService.CreateAsync(request, cancellationToken);
@@ -50,19 +59,30 @@ public static class PlatformEndpoints
     }
 
     private static async Task<IResult> ListOrganisationsAsync(
+        int? pageNumber,
+        int? pageSize,
         IOrganisationService organisationService,
         CancellationToken cancellationToken)
     {
-        var response = await organisationService.ListAsync(cancellationToken);
+        var response = await organisationService.ListAsync(
+            new PagedRequest(pageNumber ?? 1, pageSize ?? 50),
+            cancellationToken);
 
         return Results.Ok(response);
     }
 
     private static async Task<IResult> CreateBranchAsync(
         CreateBranchRequest request,
+        HttpContext httpContext,
         IBranchService branchService,
         CancellationToken cancellationToken)
     {
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
+        {
+            return validationResult.ToProblem(httpContext);
+        }
+
         try
         {
             var response = await branchService.CreateAsync(request, cancellationToken);
@@ -83,19 +103,31 @@ public static class PlatformEndpoints
 
     private static async Task<IResult> ListBranchesAsync(
         Guid organisationId,
+        int? pageNumber,
+        int? pageSize,
         IBranchService branchService,
         CancellationToken cancellationToken)
     {
-        var response = await branchService.ListByOrganisationAsync(organisationId, cancellationToken);
+        var response = await branchService.ListByOrganisationAsync(
+            organisationId,
+            new PagedRequest(pageNumber ?? 1, pageSize ?? 50),
+            cancellationToken);
 
         return Results.Ok(response);
     }
 
     private static async Task<IResult> CreateWarehouseAsync(
         CreateWarehouseRequest request,
+        HttpContext httpContext,
         IWarehouseService warehouseService,
         CancellationToken cancellationToken)
     {
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
+        {
+            return validationResult.ToProblem(httpContext);
+        }
+
         try
         {
             var response = await warehouseService.CreateAsync(request, cancellationToken);
@@ -116,10 +148,15 @@ public static class PlatformEndpoints
 
     private static async Task<IResult> ListWarehousesAsync(
         Guid organisationId,
+        int? pageNumber,
+        int? pageSize,
         IWarehouseService warehouseService,
         CancellationToken cancellationToken)
     {
-        var response = await warehouseService.ListByOrganisationAsync(organisationId, cancellationToken);
+        var response = await warehouseService.ListByOrganisationAsync(
+            organisationId,
+            new PagedRequest(pageNumber ?? 1, pageSize ?? 50),
+            cancellationToken);
 
         return Results.Ok(response);
     }

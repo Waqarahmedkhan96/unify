@@ -1,7 +1,9 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Unify.Erp.Api.Auth;
+using Unify.Erp.Api.Common;
 using Unify.Erp.Api.Platform;
 using Unify.Erp.Application;
 using Unify.Erp.Contracts.System;
@@ -14,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks();
+builder.Services.AddProblemDetails();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
@@ -39,6 +42,34 @@ if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
 }
 
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<IExceptionHandlerFeature>();
+        var exception = feature?.Error;
+        var isClientError = exception is ArgumentException
+            or InvalidOperationException
+            or BadHttpRequestException;
+
+        context.Response.StatusCode = isClientError
+            ? StatusCodes.Status400BadRequest
+            : StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/problem+json";
+
+        await Results.Problem(
+            title: isClientError ? "Request could not be processed." : "An unexpected error occurred.",
+            statusCode: context.Response.StatusCode,
+            extensions: new Dictionary<string, object?>
+            {
+                ["code"] = isClientError ? "common.invalid_request" : "common.unhandled_error",
+                ["correlationId"] = context.TraceIdentifier
+            }).ExecuteAsync(context);
+    });
+});
+
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

@@ -71,6 +71,20 @@ Standard CRUD plus domain-specific actions.
 - UTC timestamps
 - UUID identifiers
 
+List endpoints return a paged response envelope:
+- items
+- pageNumber
+- pageSize
+- totalCount
+- totalPages
+
+Validation failures use RFC7807 validation Problem Details with:
+- code
+- correlationId
+- errors
+
+Every API response includes `X-Correlation-ID`. Clients may provide this header to trace a request across logs.
+
 # Part 6 - Security
 - HTTPS only
 - Authorization policies

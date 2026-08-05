@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Platform;
 using Unify.Erp.Infrastructure.Persistence;
 using Unify.Erp.Infrastructure.Platform;
@@ -48,6 +49,26 @@ public sealed class PlatformServiceTests
                 CancellationToken.None));
 
         Assert.Equal("Branch does not exist for the organisation.", exception.Message);
+    }
+
+    [Fact]
+    public async Task Lists_organisations_with_paging_metadata()
+    {
+        using var dbContext = CreateDbContext();
+        var organisationService = new OrganisationService(dbContext);
+
+        await organisationService.CreateAsync(
+            new CreateOrganisationRequest("Bravo Limited", "Bravo", "PKR", "Asia/Karachi"),
+            CancellationToken.None);
+        await organisationService.CreateAsync(
+            new CreateOrganisationRequest("Alpha Limited", "Alpha", "PKR", "Asia/Karachi"),
+            CancellationToken.None);
+
+        var response = await organisationService.ListAsync(new PagedRequest(1, 1), CancellationToken.None);
+
+        Assert.Equal(2, response.TotalCount);
+        Assert.Equal(2, response.TotalPages);
+        Assert.Equal("Alpha", response.Items.Single().DisplayName);
     }
 
     private static ApplicationDbContext CreateDbContext()

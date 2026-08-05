@@ -38,6 +38,9 @@ Delivery + LPG module.
 ## Phase 11
 Employees, payroll, assets.
 
+## Phase 12
+Production hardening, backup restore testing, security review, signing, release packaging, and final deployment readiness.
+
 ## Production Checklist
 - Tests pass
 - Security review

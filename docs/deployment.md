@@ -14,6 +14,7 @@
 - HTTPS behind reverse proxy.
 - Environment variables.
 - Health checks.
+- Non-root runtime user.
 
 ## Database
 - PostgreSQL.

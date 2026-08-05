@@ -44,11 +44,38 @@
 
 ## Setup
 1. Clone repository.
-2. Start PostgreSQL with Docker Compose.
-3. Apply EF Core migrations.
-4. Run backend.
-5. Run Flutter app.
-6. Log in with seeded development account.
+2. Copy `.env.example` to `.env` and adjust local values if required.
+3. Start PostgreSQL and the API with Docker Compose:
+
+   ```powershell
+   docker compose up --build
+   ```
+
+4. Or run the backend directly:
+
+   ```powershell
+   dotnet run --project backend/src/Unify.Erp.Api/Unify.Erp.Api.csproj
+   ```
+
+5. Verify the API:
+
+   ```powershell
+   Invoke-RestMethod http://localhost:5080/api/v1/system/health
+   ```
+
+6. Generate the Flutter app after Flutter is installed:
+
+   ```powershell
+   Set-Location apps/unify_app
+   flutter create --platforms android,windows --org com.unifyerp .
+   ```
+
+## Backend Verification
+
+```powershell
+dotnet build backend/Unify.Erp.sln --configuration Release
+dotnet test backend/Unify.Erp.sln --configuration Release --no-build
+```
 
 ## Documentation
 See:

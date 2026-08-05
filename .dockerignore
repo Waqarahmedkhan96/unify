@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+.git/
+.env
+apps/unify_app/build/
+apps/unify_app/.dart_tool/

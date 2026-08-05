@@ -1,8 +1,8 @@
-# Unify ERP — API Design
+# Unify ERP - API Design
 
-> **Important note:** This is the foundation API design. A complete enterprise API specification (every endpoint, DTO, schema, version, error, example request/response, OpenAPI detail, pagination model, and webhook/event contract) would span hundreds of pages and cannot fit into one AI response.
+> **Important note:** This is the foundation API design. A complete enterprise API specification (every endpoint, DTO, schema, version, error, example request/response, OpenAPI detail, pagination model, and webhook/event contract) would span hundreds of pages and cannot fit into one generated file.
 
-# Part 1 – API Principles
+# Part 1 - API Principles
 - RESTful HTTPS API
 - ASP.NET Core Web API
 - JSON
@@ -12,7 +12,7 @@
 - Problem Details errors
 - Idempotent where required
 
-# Part 2 – Authentication
+# Part 2 - Authentication
 Endpoints:
 - POST /auth/login
 - POST /auth/refresh
@@ -22,7 +22,13 @@ Endpoints:
 
 JWT + rotating refresh tokens.
 
-# Part 3 – Core Modules
+# Part 2.1 - System
+Endpoints:
+- GET /api/v1/system/health
+- GET /health/live
+- GET /health/ready
+
+# Part 3 - Core Modules
 Endpoints grouped by:
 - organisations
 - branches
@@ -33,7 +39,7 @@ Endpoints grouped by:
 - devices
 - settings
 
-# Part 4 – ERP Modules
+# Part 4 - ERP Modules
 Resources:
 - customers
 - suppliers
@@ -51,7 +57,7 @@ Resources:
 
 Standard CRUD plus domain-specific actions.
 
-# Part 5 – API Standards
+# Part 5 - API Standards
 - Pagination
 - Filtering
 - Sorting
@@ -61,7 +67,7 @@ Standard CRUD plus domain-specific actions.
 - UTC timestamps
 - UUID identifiers
 
-# Part 6 – Security
+# Part 6 - Security
 - HTTPS only
 - Authorization policies
 - Tenant validation
@@ -69,20 +75,20 @@ Standard CRUD plus domain-specific actions.
 - Rate limiting
 - Request size limits
 
-# Part 7 – Reporting
+# Part 7 - Reporting
 Endpoints generate:
 - Excel
 - PDF
 - CSV where appropriate
 
-# Part 8 – Sync
+# Part 8 - Sync
 - POST /sync/push
 - POST /sync/pull
 - GET /sync/status
 - POST /sync/retry
 
-# Part 9 – Errors
+# Part 9 - Errors
 Use RFC7807 Problem Details with stable machine-readable error codes.
 
-# Part 10 – Future
+# Part 10 - Future
 Future document will define every endpoint, DTO, request/response model, OpenAPI examples, status codes, versioning, and deprecation policy.

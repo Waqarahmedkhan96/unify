@@ -24,6 +24,18 @@ public static class AuthEndpoints
             .RequireAuthorization()
             .WithName("GetCurrentUser");
 
+        group.MapPost("/forgot-password", ForgotPasswordAsync)
+            .AllowAnonymous()
+            .WithName("ForgotPassword");
+
+        group.MapPost("/reset-password", ResetPasswordAsync)
+            .AllowAnonymous()
+            .WithName("ResetPassword");
+
+        group.MapPost("/change-password", ChangePasswordAsync)
+            .RequireAuthorization()
+            .WithName("ChangePassword");
+
         group.MapGet("/sessions", ListSessionsAsync)
             .RequireAuthorization()
             .WithName("ListAuthSessions");
@@ -87,6 +99,68 @@ public static class AuthEndpoints
             AuthenticationError.ReusedRefreshToken => Results.Unauthorized(),
             _ => Results.Unauthorized()
         };
+    }
+
+    private static async Task<IResult> ForgotPasswordAsync(
+        ForgotPasswordRequest request,
+        HttpContext httpContext,
+        IAuthenticationService authenticationService,
+        CancellationToken cancellationToken)
+    {
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
+        {
+            return validationResult.ToProblem(httpContext);
+        }
+
+        await authenticationService.RequestPasswordResetAsync(request, cancellationToken);
+
+        return Results.Accepted();
+    }
+
+    private static async Task<IResult> ResetPasswordAsync(
+        ResetPasswordRequest request,
+        HttpContext httpContext,
+        IAuthenticationService authenticationService,
+        CancellationToken cancellationToken)
+    {
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
+        {
+            return validationResult.ToProblem(httpContext);
+        }
+
+        var result = await authenticationService.ResetPasswordAsync(request, cancellationToken);
+
+        return result.Succeeded
+            ? Results.NoContent()
+            : Results.BadRequest(new { code = "auth.password_reset_failed", errors = result.Errors });
+    }
+
+    private static async Task<IResult> ChangePasswordAsync(
+        ChangePasswordRequest request,
+        ClaimsPrincipal user,
+        HttpContext httpContext,
+        IAuthenticationService authenticationService,
+        CancellationToken cancellationToken)
+    {
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
+        {
+            return validationResult.ToProblem(httpContext);
+        }
+
+        var userId = GetUserId(user);
+        if (userId is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = await authenticationService.ChangePasswordAsync(userId.Value, request, cancellationToken);
+
+        return result.Succeeded
+            ? Results.NoContent()
+            : Results.BadRequest(new { code = "auth.password_change_failed", errors = result.Errors });
     }
 
     private static IResult GetCurrentUser(ClaimsPrincipal user)

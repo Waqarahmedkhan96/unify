@@ -18,12 +18,17 @@ public static class ProductionConfigurationValidator
         var errors = new List<string>();
         var connectionString = configuration.GetConnectionString("Default");
         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+        var passwordResetOptions = configuration.GetSection(PasswordResetDeliveryOptions.SectionName).Get<PasswordResetDeliveryOptions>() ?? new PasswordResetDeliveryOptions();
         var seedOptions = configuration.GetSection(DevelopmentSeedOptions.SectionName).Get<DevelopmentSeedOptions>() ?? new DevelopmentSeedOptions();
+        var bootstrapAdminOptions = configuration.GetSection(BootstrapAdminOptions.SectionName).Get<BootstrapAdminOptions>() ?? new BootstrapAdminOptions();
 
         AddRequired(errors, "ConnectionStrings:Default", connectionString);
         AddRequired(errors, "Jwt:Issuer", jwtOptions.Issuer);
         AddRequired(errors, "Jwt:Audience", jwtOptions.Audience);
         AddRequired(errors, "Jwt:SigningKey", jwtOptions.SigningKey);
+        AddRequired(errors, "PasswordReset:FrontendBaseUrl", passwordResetOptions.FrontendBaseUrl);
+        AddRequired(errors, "PasswordReset:SenderEmail", passwordResetOptions.SenderEmail);
+        AddRequired(errors, "PasswordReset:SmtpHost", passwordResetOptions.SmtpHost);
 
         if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey)
             && jwtOptions.SigningKey.Length < MinimumSigningKeyLength)
@@ -41,9 +46,27 @@ public static class ProductionConfigurationValidator
             errors.Add("Jwt:RefreshTokenDays must be between 1 and 90.");
         }
 
+        if (passwordResetOptions.SmtpPort < 1 || passwordResetOptions.SmtpPort > 65535)
+        {
+            errors.Add("PasswordReset:SmtpPort must be between 1 and 65535.");
+        }
+
         if (seedOptions.Enabled)
         {
             errors.Add("DevelopmentSeed:Enabled must be false in Production.");
+        }
+
+        if (bootstrapAdminOptions.Enabled)
+        {
+            AddRequired(errors, "BootstrapAdmin:Email", bootstrapAdminOptions.Email);
+            AddRequired(errors, "BootstrapAdmin:Password", bootstrapAdminOptions.Password);
+            AddRequired(errors, "BootstrapAdmin:DisplayName", bootstrapAdminOptions.DisplayName);
+
+            if (!string.IsNullOrWhiteSpace(bootstrapAdminOptions.Password)
+                && bootstrapAdminOptions.Password.Length < 12)
+            {
+                errors.Add("BootstrapAdmin:Password must be at least 12 characters.");
+            }
         }
 
         if (ContainsDevelopmentPlaceholder(connectionString) || ContainsDevelopmentPlaceholder(jwtOptions.SigningKey))

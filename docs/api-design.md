@@ -124,6 +124,13 @@ Implemented module permission policies use JWT `permission` claims. Each protect
 
 Implemented global rate limiting uses a fixed window limiter partitioned by authenticated user name when present, otherwise by remote IP. Defaults are 120 requests per 60 seconds and can be changed with `RateLimiting__PermitLimit` and `RateLimiting__WindowSeconds`.
 
+Authentication recovery endpoints:
+- `POST /api/v1/auth/forgot-password`
+- `POST /api/v1/auth/reset-password`
+- `POST /api/v1/auth/change-password`
+
+Forgot-password returns 202 Accepted for valid request shape regardless of whether the email exists.
+
 Platform audit endpoint:
 - `GET /api/v1/platform/audit-entries`
 - Requires `platform.manage`

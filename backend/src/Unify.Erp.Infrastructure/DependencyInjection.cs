@@ -38,11 +38,18 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<PasswordResetDeliveryOptions>(configuration.GetSection(PasswordResetDeliveryOptions.SectionName));
+        services.Configure<DataProtectionTokenProviderOptions>(options =>
+        {
+            options.TokenLifespan = TimeSpan.FromHours(1);
+        });
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<DevelopmentSeedOptions>(configuration.GetSection(DevelopmentSeedOptions.SectionName));
+        services.Configure<BootstrapAdminOptions>(configuration.GetSection(BootstrapAdminOptions.SectionName));
         services.TryAddScoped<IExecutionContext, SystemExecutionContext>();
         services.AddScoped<AuditSaveChangesInterceptor>();
         services.AddScoped<JwtTokenFactory>();
+        services.AddScoped<IPasswordResetNotificationService, PasswordResetNotificationService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IAuthenticationService, Auth.AuthenticationService>();
         services.AddScoped<IOrganisationService, OrganisationService>();
@@ -76,6 +83,7 @@ public static class DependencyInjection
                 options.Lockout.AllowedForNewUsers = true;
             })
             .AddRoles<ApplicationRole>()
+            .AddDefaultTokenProviders()
             .AddEntityFrameworkStores<ApplicationDbContext>();
 
         return services;

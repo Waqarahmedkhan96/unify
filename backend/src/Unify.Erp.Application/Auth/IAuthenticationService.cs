@@ -13,4 +13,10 @@ public interface IAuthenticationService
     Task LogoutAllAsync(Guid userId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<AuthSessionResponse>> ListSessionsAsync(Guid userId, CancellationToken cancellationToken);
+
+    Task RequestPasswordResetAsync(ForgotPasswordRequest request, CancellationToken cancellationToken);
+
+    Task<PasswordOperationResult> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken);
+
+    Task<PasswordOperationResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken cancellationToken);
 }

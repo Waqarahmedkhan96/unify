@@ -21,12 +21,27 @@ Production startup requires:
 - `Jwt__Issuer`
 - `Jwt__Audience`
 - `Jwt__SigningKey` with at least 32 characters
+- `PasswordReset__FrontendBaseUrl`
+- `PasswordReset__SenderEmail`
+- `PasswordReset__SmtpHost`
 - `DevelopmentSeed__Enabled=false`
 
 Production rate limiting variables:
 - `RateLimiting__Enabled`
 - `RateLimiting__PermitLimit`
 - `RateLimiting__WindowSeconds`
+
+Production HTTPS variables:
+- `Https__RequireHttps`
+- `Https__HstsDays`
+
+First admin bootstrap variables:
+- `BootstrapAdmin__Enabled`
+- `BootstrapAdmin__Email`
+- `BootstrapAdmin__Password`
+- `BootstrapAdmin__DisplayName`
+
+Use bootstrap admin only for the first deployment when there are zero users. After the first successful login, set `BootstrapAdmin__Enabled=false` and redeploy.
 
 The API fails fast in Production when required secrets are missing, placeholder values are present, token lifetimes are outside allowed bounds, or development seeding is enabled.
 

@@ -304,6 +304,241 @@ class ApiClient {
     return response.data ?? {};
   }
 
+  Future<List<Map<String, dynamic>>> listInventoryBalances(
+    String accessToken,
+    String organisationId, {
+    String? warehouseId,
+  }) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/inventory/balances',
+      queryParameters: {
+        'organisationId': organisationId,
+        if (warehouseId != null) 'warehouseId': warehouseId,
+      },
+      options: _auth(accessToken),
+    );
+
+    return (response.data ?? []).whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listInventoryMovements(
+    String accessToken,
+    String organisationId, {
+    String? warehouseId,
+    String? productId,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/inventory/movements',
+      queryParameters: {
+        'organisationId': organisationId,
+        if (warehouseId != null) 'warehouseId': warehouseId,
+        if (productId != null) 'productId': productId,
+        'pageNumber': 1,
+        'pageSize': 100,
+      },
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<Map<String, dynamic>> createStockAdjustment(
+    String accessToken, {
+    required String organisationId,
+    required String warehouseId,
+    required String productId,
+    required String movementType,
+    required double quantity,
+    required String notes,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/inventory/adjustments',
+      data: {
+        'organisationId': organisationId,
+        'warehouseId': warehouseId,
+        'productId': productId,
+        'movementType': movementType,
+        'quantity': quantity,
+        'notes': notes,
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Future<List<Map<String, dynamic>>> listSuppliers(
+    String accessToken,
+    String organisationId,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/suppliers',
+      queryParameters: {
+        'organisationId': organisationId,
+        'pageNumber': 1,
+        'pageSize': 100,
+      },
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<Map<String, dynamic>> createSupplier(
+    String accessToken, {
+    required String organisationId,
+    required String supplierNumber,
+    required String displayName,
+    required String phone,
+    required String email,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/suppliers/',
+      data: {
+        'organisationId': organisationId,
+        'supplierNumber': supplierNumber,
+        'displayName': displayName,
+        'legalName': displayName,
+        'phone': phone,
+        'email': email,
+        'taxNumber': null,
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Future<List<Map<String, dynamic>>> listPurchaseOrders(
+    String accessToken,
+    String organisationId,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/purchasing/orders',
+      queryParameters: {
+        'organisationId': organisationId,
+        'pageNumber': 1,
+        'pageSize': 100,
+      },
+      options: _auth(accessToken),
+    );
+
+    return _items(response.data);
+  }
+
+  Future<Map<String, dynamic>> createPurchaseOrder(
+    String accessToken, {
+    required String organisationId,
+    required String branchId,
+    required String supplierId,
+    required String productId,
+    required String description,
+    required double quantity,
+    required double unitCost,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/purchasing/orders',
+      data: {
+        'organisationId': organisationId,
+        'branchId': branchId,
+        'supplierId': supplierId,
+        'orderNumber': 'PO-${DateTime.now().millisecondsSinceEpoch}',
+        'orderDateUtc': DateTime.now().toUtc().toIso8601String(),
+        'items': [
+          {
+            'productId': productId,
+            'description': description,
+            'quantity': quantity,
+            'unitCost': unitCost,
+            'taxAmount': 0,
+          }
+        ],
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Future<List<Map<String, dynamic>>> listAccounts(
+      String accessToken, String organisationId) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/accounting/accounts',
+      queryParameters: {'organisationId': organisationId},
+      options: _auth(accessToken),
+    );
+
+    return (response.data ?? []).whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listFiscalPeriods(
+      String accessToken, String organisationId) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/accounting/fiscal-periods',
+      queryParameters: {'organisationId': organisationId},
+      options: _auth(accessToken),
+    );
+
+    return (response.data ?? []).whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> createAccount(
+    String accessToken, {
+    required String organisationId,
+    required String code,
+    required String name,
+    required String type,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/accounting/accounts',
+      data: {
+        'organisationId': organisationId,
+        'code': code,
+        'name': name,
+        'type': type,
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
+  Future<Map<String, dynamic>> createJournal(
+    String accessToken, {
+    required String organisationId,
+    required String debitAccountId,
+    required String creditAccountId,
+    required String description,
+    required double amount,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/accounting/journals',
+      data: {
+        'organisationId': organisationId,
+        'journalNumber': 'JE-${DateTime.now().millisecondsSinceEpoch}',
+        'journalDate': DateTime.now().toIso8601String().substring(0, 10),
+        'description': description,
+        'lines': [
+          {
+            'accountId': debitAccountId,
+            'description': description,
+            'debit': amount,
+            'credit': 0,
+          },
+          {
+            'accountId': creditAccountId,
+            'description': description,
+            'debit': 0,
+            'credit': amount,
+          },
+        ],
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
   Options _auth(String accessToken) {
     return Options(headers: {'Authorization': 'Bearer $accessToken'});
   }

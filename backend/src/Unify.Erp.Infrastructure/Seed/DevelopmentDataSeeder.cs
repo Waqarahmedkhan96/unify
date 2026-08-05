@@ -4,11 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using Unify.Erp.Contracts.Auth;
+using Unify.Erp.Domain.Accounting;
 using Unify.Erp.Domain.Branches;
 using Unify.Erp.Domain.Customers;
 using Unify.Erp.Domain.Inventory;
 using Unify.Erp.Domain.Organisations;
 using Unify.Erp.Domain.Products;
+using Unify.Erp.Domain.Suppliers;
 using Unify.Erp.Domain.Warehouses;
 using Unify.Erp.Infrastructure.Identity;
 using Unify.Erp.Infrastructure.Persistence;
@@ -210,6 +212,76 @@ public static class DevelopmentDataSeeder
                     null,
                     seedCustomer.Item5));
             }
+        }
+
+        var suppliers = new[]
+        {
+            ("S-1001", "Gas Supply Co", "0300-2002001", "supplier@example.com"),
+            ("S-1002", "Cylinder Works", "0300-2002002", "cylinder@example.com")
+        };
+
+        foreach (var seedSupplier in suppliers)
+        {
+            var exists = await dbContext.Suppliers.AnyAsync(
+                item => item.OrganisationId == organisation.Id && item.SupplierNumber == seedSupplier.Item1,
+                cancellationToken);
+            if (!exists)
+            {
+                dbContext.Suppliers.Add(new Supplier(
+                    Guid.NewGuid(),
+                    organisation.Id,
+                    seedSupplier.Item1,
+                    seedSupplier.Item2,
+                    seedSupplier.Item2,
+                    seedSupplier.Item3,
+                    seedSupplier.Item4,
+                    null));
+            }
+        }
+
+        var accounts = new[]
+        {
+            ("1000", "Cash", AccountType.Asset),
+            ("1100", "Accounts Receivable", AccountType.Asset),
+            ("1200", "Inventory", AccountType.Asset),
+            ("2000", "Accounts Payable", AccountType.Liability),
+            ("3000", "Owner Equity", AccountType.Equity),
+            ("4000", "Sales Revenue", AccountType.Revenue),
+            ("5000", "Cost of Goods Sold", AccountType.Expense)
+        };
+
+        foreach (var seedAccount in accounts)
+        {
+            var exists = await dbContext.Accounts.AnyAsync(
+                item => item.OrganisationId == organisation.Id && item.Code == seedAccount.Item1,
+                cancellationToken);
+            if (!exists)
+            {
+                dbContext.Accounts.Add(new Account(
+                    Guid.NewGuid(),
+                    organisation.Id,
+                    seedAccount.Item1,
+                    seedAccount.Item2,
+                    seedAccount.Item3));
+            }
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var fiscalYearStart = new DateOnly(today.Year, 1, 1);
+        var fiscalYearEnd = new DateOnly(today.Year, 12, 31);
+        var hasCurrentPeriod = await dbContext.FiscalPeriods.AnyAsync(
+            item => item.OrganisationId == organisation.Id
+                && item.StartsOn <= today
+                && item.EndsOn >= today,
+            cancellationToken);
+        if (!hasCurrentPeriod)
+        {
+            dbContext.FiscalPeriods.Add(new FiscalPeriod(
+                Guid.NewGuid(),
+                organisation.Id,
+                $"FY {today.Year}",
+                fiscalYearStart,
+                fiscalYearEnd));
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

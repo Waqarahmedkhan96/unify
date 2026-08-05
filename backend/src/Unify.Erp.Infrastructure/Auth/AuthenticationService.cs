@@ -13,17 +13,20 @@ public sealed class AuthenticationService : IAuthenticationService
     private readonly ApplicationDbContext _dbContext;
     private readonly JwtOptions _jwtOptions;
     private readonly JwtTokenFactory _jwtTokenFactory;
+    private readonly IPasswordResetNotificationService _passwordResetNotificationService;
     private readonly UserManager<ApplicationUser> _userManager;
 
     public AuthenticationService(
         ApplicationDbContext dbContext,
         IOptions<JwtOptions> jwtOptions,
         JwtTokenFactory jwtTokenFactory,
+        IPasswordResetNotificationService passwordResetNotificationService,
         UserManager<ApplicationUser> userManager)
     {
         _dbContext = dbContext;
         _jwtOptions = jwtOptions.Value;
         _jwtTokenFactory = jwtTokenFactory;
+        _passwordResetNotificationService = passwordResetNotificationService;
         _userManager = userManager;
     }
 
@@ -156,6 +159,64 @@ public sealed class AuthenticationService : IAuthenticationService
                 token.ExpiresAtUtc,
                 token.RevokedAtUtc == null && token.ExpiresAtUtc > nowUtc))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task RequestPasswordResetAsync(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var email = request.Email.Trim();
+        var user = await _userManager.FindByEmailAsync(email);
+
+        if (user is null || user.IsDisabled)
+        {
+            return;
+        }
+
+        var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+        await _passwordResetNotificationService.SendPasswordResetAsync(email, resetToken, cancellationToken);
+    }
+
+    public async Task<PasswordOperationResult> ResetPasswordAsync(
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || user.IsDisabled)
+        {
+            return PasswordOperationResult.Failure("Password reset could not be completed.");
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, request.ResetToken, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            return PasswordOperationResult.Failure(result.Errors.Select(error => error.Description).ToArray());
+        }
+
+        await LogoutAllAsync(user.Id, cancellationToken);
+
+        return PasswordOperationResult.Success();
+    }
+
+    public async Task<PasswordOperationResult> ChangePasswordAsync(
+        Guid userId,
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || user.IsDisabled)
+        {
+            return PasswordOperationResult.Failure("Password change could not be completed.");
+        }
+
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            return PasswordOperationResult.Failure(result.Errors.Select(error => error.Description).ToArray());
+        }
+
+        await LogoutAllAsync(user.Id, cancellationToken);
+
+        return PasswordOperationResult.Success();
     }
 
     private async Task<AuthenticationResult> CreateSessionAsync(

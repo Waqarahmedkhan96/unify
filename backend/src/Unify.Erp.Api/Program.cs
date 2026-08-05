@@ -2,6 +2,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Unify.Erp.Api.Auth;
@@ -36,6 +37,24 @@ ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environ
 
 var rateLimitingOptions = builder.Configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>()
     ?? new RateLimitingOptions();
+var httpsOptions = builder.Configuration.GetSection(HttpsOptions.SectionName).Get<HttpsOptions>() ?? new HttpsOptions();
+
+if (builder.Environment.IsProduction())
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+
+    builder.Services.AddHsts(options =>
+    {
+        options.IncludeSubDomains = true;
+        options.MaxAge = TimeSpan.FromDays(Math.Max(1, httpsOptions.HstsDays));
+    });
+}
+
 if (rateLimitingOptions.Enabled)
 {
     builder.Services.AddRateLimiter(options =>
@@ -85,6 +104,11 @@ if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
 
 var app = builder.Build();
 
+if (app.Environment.IsProduction())
+{
+    app.UseForwardedHeaders();
+}
+
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -113,9 +137,22 @@ app.UseExceptionHandler(errorApp =>
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 
+if (app.Environment.IsProduction())
+{
+    if (httpsOptions.RequireHttps)
+    {
+        app.UseHsts();
+        app.UseHttpsRedirection();
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     await DevelopmentDataSeeder.InitializeAsync(app.Services, CancellationToken.None);
+}
+else
+{
+    await BootstrapAdminSeeder.InitializeAsync(app.Services, CancellationToken.None);
 }
 
 if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))

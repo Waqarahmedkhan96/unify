@@ -8,6 +8,9 @@
 - Rotating refresh tokens
 - Device registration
 - Session revocation
+- Password change
+- Password reset through signed, expiring Identity tokens
+- First-admin bootstrap without public signup
 
 ## Authorization
 - Policy/permission based.
@@ -27,6 +30,12 @@ Implemented rate limiting:
 - Anonymous clients are partitioned by remote IP address.
 - Rejected requests return HTTP 429.
 
+Implemented HTTPS production behavior:
+- Production trusts reverse proxy forwarded headers.
+- Production uses HSTS.
+- Production redirects HTTP requests to HTTPS when `Https__RequireHttps=true`.
+- TLS certificates are terminated at the reverse proxy.
+
 ## Data
 - Decimal for money
 - UTC timestamps
@@ -40,6 +49,8 @@ Never log:
 - Access tokens
 - Refresh tokens
 - Secrets
+
+Development may log password reset tokens only for local testing when SMTP is not configured. Production startup requires SMTP reset delivery settings.
 
 ## Audit
 Audit:
@@ -79,3 +90,16 @@ Current permission names:
 - `accounting.manage`
 
 The development seed user receives all current permissions for local testing. Production deployments must assign permissions through role administration rather than broad seed access.
+
+## Implemented Account Recovery
+
+Password endpoints:
+- `POST /api/v1/auth/forgot-password`
+- `POST /api/v1/auth/reset-password`
+- `POST /api/v1/auth/change-password`
+
+Forgot-password requests always return an accepted response after validation so attackers cannot discover registered emails. Successful reset and password change operations revoke existing refresh-token sessions.
+
+## Implemented First Admin Bootstrap
+
+There is no public signup endpoint. Production can create the first platform admin through `BootstrapAdmin` configuration only when the user table is empty. The bootstrap user receives all current module permissions. Keep `BootstrapAdmin__Enabled=false` after first deployment.

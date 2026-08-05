@@ -12,4 +12,17 @@ services:
       RateLimiting__Enabled: ${RateLimiting__Enabled:-true}
       RateLimiting__PermitLimit: ${RateLimiting__PermitLimit:-120}
       RateLimiting__WindowSeconds: ${RateLimiting__WindowSeconds:-60}
+      Https__RequireHttps: ${Https__RequireHttps:-true}
+      Https__HstsDays: ${Https__HstsDays:-365}
+      PasswordReset__FrontendBaseUrl: ${PasswordReset__FrontendBaseUrl}
+      PasswordReset__SenderEmail: ${PasswordReset__SenderEmail}
+      PasswordReset__SmtpHost: ${PasswordReset__SmtpHost}
+      PasswordReset__SmtpPort: ${PasswordReset__SmtpPort:-587}
+      PasswordReset__SmtpEnableSsl: ${PasswordReset__SmtpEnableSsl:-true}
+      PasswordReset__SmtpUsername: ${PasswordReset__SmtpUsername}
+      PasswordReset__SmtpPassword: ${PasswordReset__SmtpPassword}
       DevelopmentSeed__Enabled: "false"
+      BootstrapAdmin__Enabled: ${BootstrapAdmin__Enabled:-false}
+      BootstrapAdmin__Email: ${BootstrapAdmin__Email:-}
+      BootstrapAdmin__Password: ${BootstrapAdmin__Password:-}
+      BootstrapAdmin__DisplayName: ${BootstrapAdmin__DisplayName:-}

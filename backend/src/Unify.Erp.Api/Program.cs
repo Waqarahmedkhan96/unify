@@ -16,6 +16,7 @@ using Unify.Erp.Api.Platform;
 using Unify.Erp.Api.Products;
 using Unify.Erp.Api.Purchasing;
 using Unify.Erp.Api.Realtime;
+using Unify.Erp.Api.Reports;
 using Unify.Erp.Api.Sales;
 using Unify.Erp.Api.Suppliers;
 using Unify.Erp.Application;
@@ -217,6 +218,7 @@ app.MapSalesEndpoints();
 app.MapPaymentEndpoints();
 app.MapPurchasingEndpoints();
 app.MapAccountingEndpoints();
+app.MapReportsEndpoints();
 app.MapHub<OperationsHub>("/hubs/operations")
     .RequireAuthorization();
 

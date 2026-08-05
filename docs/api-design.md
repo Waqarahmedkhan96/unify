@@ -31,9 +31,12 @@ Endpoints:
 
 # Part 3 - Core Modules
 Endpoints grouped by:
-- organisations
-- branches
-- warehouses
+- GET /api/v1/platform/organisations
+- POST /api/v1/platform/organisations
+- GET /api/v1/platform/organisations/{organisationId}/branches
+- POST /api/v1/platform/branches
+- GET /api/v1/platform/organisations/{organisationId}/warehouses
+- POST /api/v1/platform/warehouses
 - users
 - roles
 - permissions

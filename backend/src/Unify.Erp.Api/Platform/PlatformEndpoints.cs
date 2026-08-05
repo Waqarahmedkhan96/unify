@@ -1,0 +1,126 @@
+using Unify.Erp.Application.Platform;
+using Unify.Erp.Contracts.Platform;
+
+namespace Unify.Erp.Api.Platform;
+
+public static class PlatformEndpoints
+{
+    public static IEndpointRouteBuilder MapPlatformEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/v1/platform")
+            .RequireAuthorization()
+            .WithTags("Platform");
+
+        group.MapPost("/organisations", CreateOrganisationAsync)
+            .WithName("CreateOrganisation");
+
+        group.MapGet("/organisations", ListOrganisationsAsync)
+            .WithName("ListOrganisations");
+
+        group.MapPost("/branches", CreateBranchAsync)
+            .WithName("CreateBranch");
+
+        group.MapGet("/organisations/{organisationId:guid}/branches", ListBranchesAsync)
+            .WithName("ListBranches");
+
+        group.MapPost("/warehouses", CreateWarehouseAsync)
+            .WithName("CreateWarehouse");
+
+        group.MapGet("/organisations/{organisationId:guid}/warehouses", ListWarehousesAsync)
+            .WithName("ListWarehouses");
+
+        return endpoints;
+    }
+
+    private static async Task<IResult> CreateOrganisationAsync(
+        CreateOrganisationRequest request,
+        IOrganisationService organisationService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await organisationService.CreateAsync(request, cancellationToken);
+
+            return Results.Created($"/api/v1/platform/organisations/{response.Id}", response);
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.BadRequest(new { code = "platform.invalid_organisation", field = exception.ParamName });
+        }
+    }
+
+    private static async Task<IResult> ListOrganisationsAsync(
+        IOrganisationService organisationService,
+        CancellationToken cancellationToken)
+    {
+        var response = await organisationService.ListAsync(cancellationToken);
+
+        return Results.Ok(response);
+    }
+
+    private static async Task<IResult> CreateBranchAsync(
+        CreateBranchRequest request,
+        IBranchService branchService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await branchService.CreateAsync(request, cancellationToken);
+
+            return Results.Created(
+                $"/api/v1/platform/organisations/{response.OrganisationId}/branches/{response.Id}",
+                response);
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.BadRequest(new { code = "platform.invalid_branch", field = exception.ParamName });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Results.BadRequest(new { code = "platform.invalid_branch", message = exception.Message });
+        }
+    }
+
+    private static async Task<IResult> ListBranchesAsync(
+        Guid organisationId,
+        IBranchService branchService,
+        CancellationToken cancellationToken)
+    {
+        var response = await branchService.ListByOrganisationAsync(organisationId, cancellationToken);
+
+        return Results.Ok(response);
+    }
+
+    private static async Task<IResult> CreateWarehouseAsync(
+        CreateWarehouseRequest request,
+        IWarehouseService warehouseService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await warehouseService.CreateAsync(request, cancellationToken);
+
+            return Results.Created(
+                $"/api/v1/platform/organisations/{response.OrganisationId}/warehouses/{response.Id}",
+                response);
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.BadRequest(new { code = "platform.invalid_warehouse", field = exception.ParamName });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Results.BadRequest(new { code = "platform.invalid_warehouse", message = exception.Message });
+        }
+    }
+
+    private static async Task<IResult> ListWarehousesAsync(
+        Guid organisationId,
+        IWarehouseService warehouseService,
+        CancellationToken cancellationToken)
+    {
+        var response = await warehouseService.ListByOrganisationAsync(organisationId, cancellationToken);
+
+        return Results.Ok(response);
+    }
+}

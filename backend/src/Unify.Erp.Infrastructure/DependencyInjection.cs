@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Unify.Erp.Application.Auth;
+using Unify.Erp.Application.Platform;
 using Unify.Erp.Infrastructure.Auth;
 using Unify.Erp.Infrastructure.Identity;
 using Unify.Erp.Infrastructure.Persistence;
+using Unify.Erp.Infrastructure.Platform;
 using Unify.Erp.Infrastructure.Seed;
 
 namespace Unify.Erp.Infrastructure;
@@ -19,6 +21,9 @@ public static class DependencyInjection
         services.Configure<DevelopmentSeedOptions>(configuration.GetSection(DevelopmentSeedOptions.SectionName));
         services.AddScoped<JwtTokenFactory>();
         services.AddScoped<IAuthenticationService, Auth.AuthenticationService>();
+        services.AddScoped<IOrganisationService, OrganisationService>();
+        services.AddScoped<IBranchService, BranchService>();
+        services.AddScoped<IWarehouseService, WarehouseService>();
 
         var connectionString = configuration.GetConnectionString("Default");
 

@@ -31,6 +31,13 @@
 - Discounts require permissions
 - Corrections through returns/reversals
 
+# Part 4.1 - Product Rules
+- Unique product code per organisation
+- Products require a valid unit of measure in the same organisation
+- Product categories are optional but must belong to the same organisation when provided
+- Purchase and sales prices cannot be negative
+- Product deactivation preserves historical sales, purchasing, and inventory records
+
 # Part 5 – Payment Rules
 - Allocations cannot exceed payment
 - Allocations cannot exceed outstanding balance

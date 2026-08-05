@@ -53,4 +53,14 @@ public static class Guard
 
         return value;
     }
+
+    public static int Range(int value, string parameterName, int minimum, int maximum)
+    {
+        if (value < minimum || value > maximum)
+        {
+            throw new ArgumentException($"Value must be between {minimum} and {maximum}.", parameterName);
+        }
+
+        return value;
+    }
 }

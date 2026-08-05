@@ -42,6 +42,10 @@ class ModulePage extends StatelessWidget {
       return const _AccountingWorkspace();
     }
 
+    if (module.id == 'reports') {
+      return const _ReportsWorkspace();
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -1390,6 +1394,280 @@ class _SettingsWorkspace extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<_SettingsWorkspace> createState() => _SettingsWorkspaceState();
+}
+
+class _ReportsWorkspace extends ConsumerStatefulWidget {
+  const _ReportsWorkspace();
+
+  @override
+  ConsumerState<_ReportsWorkspace> createState() => _ReportsWorkspaceState();
+}
+
+class _ReportsWorkspaceState extends ConsumerState<_ReportsWorkspace> {
+  bool _loading = true;
+  String? _error;
+  String _range = 'month';
+  String? _customerId;
+  String? _productId;
+  Map<String, dynamic>? _organisation;
+  Map<String, dynamic> _report = {};
+  List<Map<String, dynamic>> _customers = [];
+  List<Map<String, dynamic>> _products = [];
+  StreamSubscription<OperationChanged>? _realtimeSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _realtimeSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final productRows = (_report['products'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final invoiceRows = (_report['invoices'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+    return _LivePageFrame(
+      title: 'Reports',
+      subtitle: 'Sales reports by date, customer, product, and product ID.',
+      icon: Icons.bar_chart,
+      color: AppColors.mint,
+      loading: _loading,
+      error: _error,
+      onRefresh: _load,
+      actions: [
+        OutlinedButton.icon(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Run report'),
+        ),
+      ],
+      child: Column(
+        children: [
+          _ContextStrip(organisation: _organisation),
+          const SizedBox(height: AppSpacing.md),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'today', label: Text('Today')),
+                      ButtonSegment(value: 'week', label: Text('Week')),
+                      ButtonSegment(value: 'month', label: Text('Month')),
+                      ButtonSegment(value: 'year', label: Text('Year')),
+                      ButtonSegment(value: 'all', label: Text('All')),
+                    ],
+                    selected: {_range},
+                    onSelectionChanged: (value) {
+                      setState(() => _range = value.first);
+                      _load();
+                    },
+                  ),
+                  SizedBox(
+                    width: 260,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _customerId,
+                      decoration: const InputDecoration(labelText: 'Customer'),
+                      items: [
+                        const DropdownMenuItem(
+                            value: '', child: Text('All customers')),
+                        for (final customer in _customers)
+                          DropdownMenuItem(
+                            value: '${customer['id']}',
+                            child: Text('${customer['displayName']}'),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _customerId =
+                            value?.isEmpty == true ? null : value);
+                        _load();
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 280,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _productId,
+                      decoration:
+                          const InputDecoration(labelText: 'Product / ID'),
+                      items: [
+                        const DropdownMenuItem(
+                            value: '', child: Text('All products')),
+                        for (final product in _products)
+                          DropdownMenuItem(
+                            value: '${product['id']}',
+                            child: Text(
+                                '${product['productCode']} - ${product['name']}'),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        setState(() =>
+                            _productId = value?.isEmpty == true ? null : value);
+                        _load();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          GridView.count(
+            crossAxisCount: MediaQuery.sizeOf(context).width < 900 ? 1 : 4,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
+            childAspectRatio: 2.1,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _SummaryTile('Sales total', _money(_report['grandTotal']),
+                  Icons.payments_outlined, AppColors.mint),
+              _SummaryTile('Invoices', '${_report['invoiceCount'] ?? 0}',
+                  Icons.receipt_long_outlined, AppColors.cobalt),
+              _SummaryTile(
+                  'Quantity',
+                  _asDouble(_report['quantity']).toStringAsFixed(2),
+                  Icons.inventory_2_outlined,
+                  AppColors.success),
+              _SummaryTile('Tax', _money(_report['taxTotal']), Icons.percent,
+                  AppColors.coral),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText: 'No product sales for this filter.',
+            columns: const ['Product ID', 'Code', 'Product', 'Qty', 'Sales'],
+            rows: [
+              for (final row in productRows)
+                [
+                  '${row['productId']}',
+                  '${row['productCode'] ?? ''}',
+                  '${row['productName'] ?? ''}',
+                  _asDouble(row['quantity']).toStringAsFixed(2),
+                  _money(row['salesTotal']),
+                ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText: 'No invoices for this filter.',
+            columns: const [
+              'Invoice',
+              'Date',
+              'Customer',
+              'Customer ID',
+              'Total'
+            ],
+            rows: [
+              for (final row in invoiceRows)
+                [
+                  '${row['invoiceNumber'] ?? ''}',
+                  _shortDate(row['saleDateUtc']),
+                  '${row['customerName'] ?? ''}',
+                  '${row['customerId'] ?? ''}',
+                  _money(row['grandTotal']),
+                ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _load() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Please sign in again.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final organisations = await api.listOrganisations(token);
+      final organisation = await _selectOperationalOrganisation(
+        organisations,
+        (organisationId) => api.listCustomers(token, organisationId),
+      );
+      if (organisation == null) {
+        throw StateError('No organisation exists.');
+      }
+
+      final organisationId = '${organisation['id']}';
+      final customers = await api.listCustomers(token, organisationId);
+      final products = await api.listProducts(token, organisationId);
+      final range = _reportRange();
+      final report = await api.getSalesReport(
+        token,
+        organisationId: organisationId,
+        fromUtc: range.$1,
+        toUtc: range.$2,
+        customerId: _customerId,
+        productId: _productId,
+      );
+      await _connectRealtime(token, organisationId);
+
+      setState(() {
+        _organisation = organisation;
+        _customers = customers;
+        _products = products;
+        _report = report;
+      });
+    } catch (error) {
+      setState(() => _error = 'Could not load report: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  (DateTime?, DateTime?) _reportRange() {
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    return switch (_range) {
+      'today' => (DateTime(now.year, now.month, now.day), end),
+      'week' => (now.subtract(const Duration(days: 7)), end),
+      'month' => (DateTime(now.year, now.month), end),
+      'year' => (DateTime(now.year), end),
+      _ => (null, null),
+    };
+  }
+
+  Future<void> _connectRealtime(String token, String organisationId) async {
+    await ref
+        .read(realtimeServiceProvider)
+        .connect(accessToken: token, organisationId: organisationId);
+    _realtimeSubscription ??=
+        ref.read(realtimeServiceProvider).changes.listen((event) {
+      if (mounted &&
+          event.organisationId == organisationId &&
+          event.module == 'sales') {
+        _load();
+      }
+    });
+  }
 }
 
 class _InventoryWorkspace extends ConsumerStatefulWidget {

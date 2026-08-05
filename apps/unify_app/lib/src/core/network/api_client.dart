@@ -539,6 +539,30 @@ class ApiClient {
     return response.data ?? {};
   }
 
+  Future<Map<String, dynamic>> getSalesReport(
+    String accessToken, {
+    required String organisationId,
+    DateTime? fromUtc,
+    DateTime? toUtc,
+    String? customerId,
+    String? productId,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/reports/sales',
+      queryParameters: {
+        'organisationId': organisationId,
+        if (fromUtc != null) 'fromUtc': fromUtc.toUtc().toIso8601String(),
+        if (toUtc != null) 'toUtc': toUtc.toUtc().toIso8601String(),
+        if (customerId != null && customerId.isNotEmpty)
+          'customerId': customerId,
+        if (productId != null && productId.isNotEmpty) 'productId': productId,
+      },
+      options: _auth(accessToken),
+    );
+
+    return response.data ?? {};
+  }
+
   Options _auth(String accessToken) {
     return Options(headers: {'Authorization': 'Bearer $accessToken'});
   }

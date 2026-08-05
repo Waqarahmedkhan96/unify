@@ -130,6 +130,15 @@ Implemented product catalog foundation:
 - StockAllocation
 - StockCount
 
+Implemented inventory foundation:
+- `stock_movements`
+- `stock_balances`
+- Append-only movement history
+- Maintained warehouse/product balances
+- Tenant scoped by `organisation_id`
+- Restricted foreign keys to organisation, warehouse, and product
+- Decimal quantities with 3 decimal places
+
 ## Finance
 - FinancialAccount
 - Expense

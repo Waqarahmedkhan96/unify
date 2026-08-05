@@ -66,7 +66,10 @@ Resources:
 - sales
 - payments
 - purchases
-- inventory
+- POST /api/v1/inventory/adjustments
+- POST /api/v1/inventory/transfers
+- GET /api/v1/inventory/balances?organisationId={organisationId}&warehouseId={warehouseId}
+- GET /api/v1/inventory/movements?organisationId={organisationId}&warehouseId={warehouseId}&productId={productId}
 - expenses
 - accounting
 - reports

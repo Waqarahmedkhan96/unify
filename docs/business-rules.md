@@ -49,6 +49,9 @@
 - Offline allocation enforced
 - Counts create adjustments
 - Transfers require source/destination
+- Stock cannot go negative
+- Transfers create paired outbound and inbound movements
+- Inventory movements require an active inventory-tracked product
 
 # Part 7 – Purchasing Rules
 - Goods receipt before invoice where configured

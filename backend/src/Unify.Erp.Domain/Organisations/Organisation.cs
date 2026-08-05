@@ -13,10 +13,10 @@ public sealed class Organisation : Entity
         OrganisationStatus status = OrganisationStatus.Active)
         : base(id)
     {
-        LegalName = RequiredText(legalName, nameof(legalName), 200);
-        DisplayName = RequiredText(displayName, nameof(displayName), 120);
-        BaseCurrency = RequiredText(baseCurrency, nameof(baseCurrency), 3).ToUpperInvariant();
-        Timezone = RequiredText(timezone, nameof(timezone), 100);
+        LegalName = Guard.RequiredText(legalName, nameof(legalName), 200);
+        DisplayName = Guard.RequiredText(displayName, nameof(displayName), 120);
+        BaseCurrency = Guard.RequiredText(baseCurrency, nameof(baseCurrency), 3).ToUpperInvariant();
+        Timezone = Guard.RequiredText(timezone, nameof(timezone), 100);
         Status = status;
         CreatedAtUtc = DateTimeOffset.UtcNow;
     }
@@ -45,19 +45,4 @@ public sealed class Organisation : Entity
         Status = OrganisationStatus.Deactivated;
     }
 
-    private static string RequiredText(string value, string parameterName, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new ArgumentException("Value is required.", parameterName);
-        }
-
-        var trimmed = value.Trim();
-        if (trimmed.Length > maxLength)
-        {
-            throw new ArgumentException($"Value cannot exceed {maxLength} characters.", parameterName);
-        }
-
-        return trimmed;
-    }
 }

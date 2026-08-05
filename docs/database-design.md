@@ -140,6 +140,15 @@ Implemented sales foundation:
 - SupplierInvoice
 - SupplierPayment
 
+Implemented purchasing foundation:
+- `purchase_orders`
+- `purchase_order_items`
+- `goods_receipts`
+- `goods_receipt_items`
+- `supplier_invoices`
+- Goods receipts create purchase receipt stock movements
+- Purchase orders can move from Open to Received
+
 ## Inventory
 - StockMovement
 - StockTransfer

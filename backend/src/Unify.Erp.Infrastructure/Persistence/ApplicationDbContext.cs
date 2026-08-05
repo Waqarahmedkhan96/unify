@@ -9,6 +9,7 @@ using Unify.Erp.Domain.Finance;
 using Unify.Erp.Domain.Inventory;
 using Unify.Erp.Domain.Organisations;
 using Unify.Erp.Domain.Products;
+using Unify.Erp.Domain.Purchasing;
 using Unify.Erp.Domain.Sales;
 using Unify.Erp.Domain.Sessions;
 using Unify.Erp.Domain.Suppliers;
@@ -56,6 +57,16 @@ public sealed class ApplicationDbContext
     public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
 
     public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
+
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+
+    public DbSet<PurchaseOrderItem> PurchaseOrderItems => Set<PurchaseOrderItem>();
+
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+
+    public DbSet<GoodsReceiptItem> GoodsReceiptItems => Set<GoodsReceiptItem>();
+
+    public DbSet<SupplierInvoice> SupplierInvoices => Set<SupplierInvoice>();
 
     public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
 

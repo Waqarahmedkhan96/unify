@@ -63,6 +63,10 @@
 - Goods receipt before invoice where configured
 - Returns preserve history
 - Supplier liabilities auditable
+- Purchase orders require at least one item
+- Purchase order and goods receipt numbers are unique per organisation
+- Supplier invoice numbers are unique per supplier within an organisation
+- Goods receipts increase inventory through stock movements
 
 # Part 8 – Accounting Rules
 - Double-entry

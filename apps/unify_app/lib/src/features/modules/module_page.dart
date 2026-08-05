@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/realtime_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/auth_controller.dart';
 
@@ -84,6 +87,7 @@ class _CustomersWorkspaceState extends ConsumerState<_CustomersWorkspace> {
   Map<String, dynamic>? _organisation;
   Map<String, dynamic>? _branch;
   List<Map<String, dynamic>> _customers = [];
+  StreamSubscription<OperationChanged>? _realtimeSubscription;
 
   @override
   void initState() {
@@ -93,6 +97,7 @@ class _CustomersWorkspaceState extends ConsumerState<_CustomersWorkspace> {
 
   @override
   void dispose() {
+    _realtimeSubscription?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -199,6 +204,7 @@ class _CustomersWorkspaceState extends ConsumerState<_CustomersWorkspace> {
       final branches = await api.listBranches(token, '${organisation['id']}');
       final customers = await api.listCustomers(token, '${organisation['id']}',
           search: _search.text);
+      await _connectRealtime(token, '${organisation['id']}');
 
       setState(() {
         _organisation = organisation;
@@ -225,6 +231,22 @@ class _CustomersWorkspaceState extends ConsumerState<_CustomersWorkspace> {
       await _load();
     }
   }
+
+  Future<void> _connectRealtime(String token, String organisationId) async {
+    await ref
+        .read(realtimeServiceProvider)
+        .connect(accessToken: token, organisationId: organisationId);
+    _realtimeSubscription ??=
+        ref.read(realtimeServiceProvider).changes.listen((event) {
+      if (!mounted || event.organisationId != organisationId) {
+        return;
+      }
+
+      if (event.module == 'customers' || event.module == 'sales') {
+        _load();
+      }
+    });
+  }
 }
 
 class _SalesWorkspace extends ConsumerStatefulWidget {
@@ -244,11 +266,18 @@ class _SalesWorkspaceState extends ConsumerState<_SalesWorkspace> {
   List<Map<String, dynamic>> _customers = [];
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _sales = [];
+  StreamSubscription<OperationChanged>? _realtimeSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _realtimeSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -406,6 +435,7 @@ class _SalesWorkspaceState extends ConsumerState<_SalesWorkspace> {
       final customers = await api.listCustomers(token, organisationId);
       final products = await api.listProducts(token, organisationId);
       final sales = await api.listSales(token, organisationId);
+      await _connectRealtime(token, organisationId);
 
       setState(() {
         _organisation = organisation;
@@ -459,6 +489,24 @@ class _SalesWorkspaceState extends ConsumerState<_SalesWorkspace> {
     if (created == true) {
       await _load();
     }
+  }
+
+  Future<void> _connectRealtime(String token, String organisationId) async {
+    await ref
+        .read(realtimeServiceProvider)
+        .connect(accessToken: token, organisationId: organisationId);
+    _realtimeSubscription ??=
+        ref.read(realtimeServiceProvider).changes.listen((event) {
+      if (!mounted || event.organisationId != organisationId) {
+        return;
+      }
+
+      if (event.module == 'sales' ||
+          event.module == 'customers' ||
+          event.module == 'inventory') {
+        _load();
+      }
+    });
   }
 
   String _customerName(String customerId) {

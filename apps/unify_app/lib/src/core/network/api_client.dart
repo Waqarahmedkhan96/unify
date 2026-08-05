@@ -21,6 +21,8 @@ class ApiClient {
 
   final Dio _dio;
 
+  String get baseUrl => _dio.options.baseUrl;
+
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,

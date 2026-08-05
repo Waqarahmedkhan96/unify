@@ -63,7 +63,14 @@
    Invoke-RestMethod http://localhost:5080/api/v1/system/health
    ```
 
-6. Generate the Flutter app after Flutter is installed:
+6. In Development, a local owner account is seeded automatically:
+
+   ```text
+   owner@unify.local
+   ChangeMe123!
+   ```
+
+7. Generate the Flutter app after Flutter is installed:
 
    ```powershell
    Set-Location apps/unify_app

@@ -6,6 +6,7 @@ using Unify.Erp.Application.Auth;
 using Unify.Erp.Infrastructure.Auth;
 using Unify.Erp.Infrastructure.Identity;
 using Unify.Erp.Infrastructure.Persistence;
+using Unify.Erp.Infrastructure.Seed;
 
 namespace Unify.Erp.Infrastructure;
 
@@ -14,6 +15,8 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
+        services.Configure<DevelopmentSeedOptions>(configuration.GetSection(DevelopmentSeedOptions.SectionName));
         services.AddScoped<JwtTokenFactory>();
         services.AddScoped<IAuthenticationService, Auth.AuthenticationService>();
 

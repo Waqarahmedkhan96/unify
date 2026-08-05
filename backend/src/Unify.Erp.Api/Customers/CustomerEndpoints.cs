@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.SignalR;
 using Unify.Erp.Api.Common;
+using Unify.Erp.Api.Realtime;
 using Unify.Erp.Application.Customers;
 using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
@@ -34,6 +36,7 @@ public static class CustomerEndpoints
         CreateCustomerRequest request,
         HttpContext httpContext,
         ICustomerService customerService,
+        IHubContext<OperationsHub> hubContext,
         CancellationToken cancellationToken)
     {
         var validationResult = request.Validate();
@@ -45,6 +48,9 @@ public static class CustomerEndpoints
         try
         {
             var response = await customerService.CreateAsync(request, cancellationToken);
+            await hubContext.Clients
+                .Group(OperationsHub.OrganisationGroup(request.OrganisationId.ToString()))
+                .SendAsync("operationChanged", new OperationChangedEvent("customers", "created", request.OrganisationId, response.Id, DateTimeOffset.UtcNow), cancellationToken);
 
             return Results.Created($"/api/v1/customers/{response.Id}", response);
         }

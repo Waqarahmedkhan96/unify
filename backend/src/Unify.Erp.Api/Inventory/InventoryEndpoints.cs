@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.SignalR;
 using Unify.Erp.Api.Common;
+using Unify.Erp.Api.Realtime;
 using Unify.Erp.Application.Inventory;
 using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
@@ -27,6 +29,7 @@ public static class InventoryEndpoints
         CreateStockAdjustmentRequest request,
         HttpContext httpContext,
         IInventoryService service,
+        IHubContext<OperationsHub> hubContext,
         CancellationToken cancellationToken)
     {
         var validationResult = request.Validate();
@@ -37,7 +40,11 @@ public static class InventoryEndpoints
 
         try
         {
-            return Results.Created("/api/v1/inventory/movements", await service.AdjustAsync(request, cancellationToken));
+            var response = await service.AdjustAsync(request, cancellationToken);
+            await hubContext.Clients
+                .Group(OperationsHub.OrganisationGroup(request.OrganisationId.ToString()))
+                .SendAsync("operationChanged", new OperationChangedEvent("inventory", "adjusted", request.OrganisationId, response.Id, DateTimeOffset.UtcNow), cancellationToken);
+            return Results.Created("/api/v1/inventory/movements", response);
         }
         catch (ArgumentException exception)
         {
@@ -53,6 +60,7 @@ public static class InventoryEndpoints
         CreateStockTransferRequest request,
         HttpContext httpContext,
         IInventoryService service,
+        IHubContext<OperationsHub> hubContext,
         CancellationToken cancellationToken)
     {
         var validationResult = request.Validate();
@@ -63,7 +71,11 @@ public static class InventoryEndpoints
 
         try
         {
-            return Results.Created("/api/v1/inventory/transfers", await service.TransferAsync(request, cancellationToken));
+            var response = await service.TransferAsync(request, cancellationToken);
+            await hubContext.Clients
+                .Group(OperationsHub.OrganisationGroup(request.OrganisationId.ToString()))
+                .SendAsync("operationChanged", new OperationChangedEvent("inventory", "transferred", request.OrganisationId, response.TransferId, DateTimeOffset.UtcNow), cancellationToken);
+            return Results.Created("/api/v1/inventory/transfers", response);
         }
         catch (ArgumentException exception)
         {

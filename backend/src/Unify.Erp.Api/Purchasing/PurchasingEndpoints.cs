@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.SignalR;
+using Unify.Erp.Api.Realtime;
 using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Purchasing;
 using Unify.Erp.Contracts.Auth;
@@ -27,6 +29,7 @@ public static class PurchasingEndpoints
         CreatePurchaseOrderRequest request,
         HttpContext httpContext,
         IPurchasingService service,
+        IHubContext<OperationsHub> hubContext,
         CancellationToken cancellationToken)
     {
         var validation = request.Validate();
@@ -38,6 +41,9 @@ public static class PurchasingEndpoints
         try
         {
             var response = await service.CreatePurchaseOrderAsync(request, cancellationToken);
+            await hubContext.Clients
+                .Group(OperationsHub.OrganisationGroup(request.OrganisationId.ToString()))
+                .SendAsync("operationChanged", new OperationChangedEvent("purchasing", "order-created", request.OrganisationId, response.Id, DateTimeOffset.UtcNow), cancellationToken);
             return Results.Created($"/api/v1/purchasing/orders/{response.Id}", response);
         }
         catch (InvalidOperationException exception)
@@ -70,6 +76,7 @@ public static class PurchasingEndpoints
         CreateGoodsReceiptRequest request,
         HttpContext httpContext,
         IPurchasingService service,
+        IHubContext<OperationsHub> hubContext,
         CancellationToken cancellationToken)
     {
         var validation = request.Validate();
@@ -81,6 +88,9 @@ public static class PurchasingEndpoints
         try
         {
             var response = await service.CreateGoodsReceiptAsync(request, cancellationToken);
+            await hubContext.Clients
+                .Group(OperationsHub.OrganisationGroup(request.OrganisationId.ToString()))
+                .SendAsync("operationChanged", new OperationChangedEvent("purchasing", "goods-received", request.OrganisationId, response.Id, DateTimeOffset.UtcNow), cancellationToken);
             return Results.Created($"/api/v1/purchasing/goods-receipts/{response.Id}", response);
         }
         catch (InvalidOperationException exception)
@@ -93,6 +103,7 @@ public static class PurchasingEndpoints
         CreateSupplierInvoiceRequest request,
         HttpContext httpContext,
         IPurchasingService service,
+        IHubContext<OperationsHub> hubContext,
         CancellationToken cancellationToken)
     {
         var validation = request.Validate();
@@ -104,6 +115,9 @@ public static class PurchasingEndpoints
         try
         {
             var response = await service.CreateSupplierInvoiceAsync(request, cancellationToken);
+            await hubContext.Clients
+                .Group(OperationsHub.OrganisationGroup(request.OrganisationId.ToString()))
+                .SendAsync("operationChanged", new OperationChangedEvent("purchasing", "supplier-invoice-created", request.OrganisationId, response.Id, DateTimeOffset.UtcNow), cancellationToken);
             return Results.Created($"/api/v1/purchasing/supplier-invoices/{response.Id}", response);
         }
         catch (InvalidOperationException exception)

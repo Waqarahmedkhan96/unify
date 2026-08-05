@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.SignalR;
 using Unify.Erp.Api.Common;
+using Unify.Erp.Api.Realtime;
 using Unify.Erp.Application.Sales;
 using Unify.Erp.Contracts.Auth;
 using Unify.Erp.Contracts.Common;
@@ -26,6 +28,7 @@ public static class SalesEndpoints
         CreateSaleRequest request,
         HttpContext httpContext,
         ISalesService service,
+        IHubContext<OperationsHub> hubContext,
         CancellationToken cancellationToken)
     {
         var validationResult = request.Validate();
@@ -37,6 +40,9 @@ public static class SalesEndpoints
         try
         {
             var response = await service.CreateAsync(request, cancellationToken);
+            await hubContext.Clients
+                .Group(OperationsHub.OrganisationGroup(request.OrganisationId.ToString()))
+                .SendAsync("operationChanged", new OperationChangedEvent("sales", "created", request.OrganisationId, response.Id, DateTimeOffset.UtcNow), cancellationToken);
             return Results.Created($"/api/v1/sales/{response.Id}", response);
         }
         catch (ArgumentException exception)

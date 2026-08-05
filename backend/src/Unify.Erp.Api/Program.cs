@@ -15,6 +15,7 @@ using Unify.Erp.Api.Payments;
 using Unify.Erp.Api.Platform;
 using Unify.Erp.Api.Products;
 using Unify.Erp.Api.Purchasing;
+using Unify.Erp.Api.Realtime;
 using Unify.Erp.Api.Sales;
 using Unify.Erp.Api.Suppliers;
 using Unify.Erp.Application;
@@ -35,6 +36,7 @@ builder.Services.AddScoped<IExecutionContext, HttpExecutionContext>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
+builder.Services.AddSignalR();
 
 ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment.EnvironmentName);
 
@@ -68,7 +70,8 @@ if (corsOptions.AllowedOrigins.Length > 0)
             policy => policy
                 .WithOrigins(corsOptions.AllowedOrigins)
                 .AllowAnyHeader()
-                .AllowAnyMethod());
+                .AllowAnyMethod()
+                .AllowCredentials());
     });
 }
 
@@ -214,6 +217,8 @@ app.MapSalesEndpoints();
 app.MapPaymentEndpoints();
 app.MapPurchasingEndpoints();
 app.MapAccountingEndpoints();
+app.MapHub<OperationsHub>("/hubs/operations")
+    .RequireAuthorization();
 
 app.Run();
 

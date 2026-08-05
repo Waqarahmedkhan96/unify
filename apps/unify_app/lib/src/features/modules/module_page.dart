@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/layout/app_breakpoints.dart';
+import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/auth_controller.dart';
 
@@ -16,6 +17,14 @@ class ModulePage extends StatelessWidget {
 
     if (module.id == 'settings') {
       return const _SettingsWorkspace();
+    }
+
+    if (module.id == 'customers') {
+      return const _CustomersWorkspace();
+    }
+
+    if (module.id == 'sales') {
+      return const _SalesWorkspace();
     }
 
     return LayoutBuilder(
@@ -41,7 +50,9 @@ class ModulePage extends StatelessWidget {
                     flex: width < 980 ? 0 : 7,
                     child: _PipelinePanel(module: module),
                   ),
-                  SizedBox(width: width < 980 ? 0 : AppSpacing.md, height: width < 980 ? AppSpacing.md : 0),
+                  SizedBox(
+                      width: width < 980 ? 0 : AppSpacing.md,
+                      height: width < 980 ? AppSpacing.md : 0),
                   Expanded(
                     flex: width < 980 ? 0 : 4,
                     child: _InsightPanel(module: module),
@@ -58,6 +69,950 @@ class ModulePage extends StatelessWidget {
   }
 }
 
+class _CustomersWorkspace extends ConsumerStatefulWidget {
+  const _CustomersWorkspace();
+
+  @override
+  ConsumerState<_CustomersWorkspace> createState() =>
+      _CustomersWorkspaceState();
+}
+
+class _CustomersWorkspaceState extends ConsumerState<_CustomersWorkspace> {
+  final _search = TextEditingController();
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic>? _organisation;
+  Map<String, dynamic>? _branch;
+  List<Map<String, dynamic>> _customers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _LivePageFrame(
+      title: 'Customers',
+      subtitle: 'Live customer records from PostgreSQL through the API.',
+      icon: Icons.people_alt,
+      color: AppColors.royalPurple,
+      loading: _loading,
+      error: _error,
+      onRefresh: _load,
+      actions: [
+        FilledButton.icon(
+          onPressed: _loading || _branch == null ? null : _openCreateCustomer,
+          icon: const Icon(Icons.add),
+          label: const Text('New customer'),
+        ),
+      ],
+      child: Column(
+        children: [
+          _ContextStrip(organisation: _organisation, branch: _branch),
+          const SizedBox(height: AppSpacing.md),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _search,
+                      decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          hintText: 'Search number, name, or phone'),
+                      onSubmitted: (_) => _load(),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  IconButton.filledTonal(
+                      onPressed: _load,
+                      icon: const Icon(Icons.search),
+                      tooltip: 'Search'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText: 'No customers yet. Create one to write to the database.',
+            columns: const [
+              'Number',
+              'Name',
+              'Phone',
+              'Email',
+              'Credit limit',
+              'Status'
+            ],
+            rows: [
+              for (final customer in _customers)
+                [
+                  '${customer['customerNumber'] ?? ''}',
+                  '${customer['displayName'] ?? ''}',
+                  '${customer['phone'] ?? '-'}',
+                  '${customer['email'] ?? '-'}',
+                  _money(customer['creditLimit']),
+                  '${customer['status'] ?? ''}',
+                ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _load() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Please sign in again.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final organisations = await api.listOrganisations(token);
+      final organisation = await _selectOperationalOrganisation(
+        organisations,
+        (organisationId) async => api.listBranches(token, organisationId),
+      );
+      if (organisation == null) {
+        throw StateError(
+            'No organisation exists. Restart the API so development seed data can be created.');
+      }
+
+      final branches = await api.listBranches(token, '${organisation['id']}');
+      final customers = await api.listCustomers(token, '${organisation['id']}',
+          search: _search.text);
+
+      setState(() {
+        _organisation = organisation;
+        _branch = branches.isNotEmpty ? branches.first : null;
+        _customers = customers;
+      });
+    } catch (error) {
+      setState(() => _error = 'Could not load live customer data: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _openCreateCustomer() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          _CreateCustomerDialog(organisation: _organisation, branch: _branch),
+    );
+
+    if (created == true) {
+      await _load();
+    }
+  }
+}
+
+class _SalesWorkspace extends ConsumerStatefulWidget {
+  const _SalesWorkspace();
+
+  @override
+  ConsumerState<_SalesWorkspace> createState() => _SalesWorkspaceState();
+}
+
+class _SalesWorkspaceState extends ConsumerState<_SalesWorkspace> {
+  bool _loading = true;
+  String? _error;
+  String _range = 'today';
+  Map<String, dynamic>? _organisation;
+  Map<String, dynamic>? _branch;
+  Map<String, dynamic>? _warehouse;
+  List<Map<String, dynamic>> _customers = [];
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _sales = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredSales = _filteredSales();
+    final total = filteredSales.fold<double>(
+        0, (sum, sale) => sum + _asDouble(sale['grandTotal']));
+
+    return _LivePageFrame(
+      title: 'Sales',
+      subtitle:
+          'Live sales table with today, week, month, year, customer, and product-aware rows.',
+      icon: Icons.point_of_sale,
+      color: AppColors.cobalt,
+      loading: _loading,
+      error: _error,
+      onRefresh: _load,
+      actions: [
+        FilledButton.icon(
+          onPressed: _loading ||
+                  _branch == null ||
+                  _warehouse == null ||
+                  _customers.isEmpty ||
+                  _products.isEmpty
+              ? null
+              : _openCreateSale,
+          icon: const Icon(Icons.add),
+          label: const Text('New sale'),
+        ),
+      ],
+      child: Column(
+        children: [
+          _ContextStrip(
+              organisation: _organisation,
+              branch: _branch,
+              warehouse: _warehouse),
+          const SizedBox(height: AppSpacing.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 760;
+              return GridView.count(
+                crossAxisCount: compact ? 1 : 4,
+                crossAxisSpacing: AppSpacing.md,
+                mainAxisSpacing: AppSpacing.md,
+                childAspectRatio: compact ? 3.1 : 1.8,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _SummaryTile('Filtered sales', _money(total),
+                      Icons.payments_outlined, AppColors.cobalt),
+                  _SummaryTile('Invoices', '${filteredSales.length}',
+                      Icons.receipt_long_outlined, AppColors.royalPurple),
+                  _SummaryTile('Customers', '${_customers.length}',
+                      Icons.people_alt_outlined, AppColors.success),
+                  _SummaryTile('Products', '${_products.length}',
+                      Icons.inventory_2_outlined, AppColors.coral),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'today', label: Text('Today')),
+                      ButtonSegment(value: 'week', label: Text('Week')),
+                      ButtonSegment(value: 'month', label: Text('Month')),
+                      ButtonSegment(value: 'year', label: Text('Year')),
+                      ButtonSegment(value: 'all', label: Text('All')),
+                    ],
+                    selected: {_range},
+                    onSelectionChanged: (value) =>
+                        setState(() => _range = value.first),
+                  ),
+                  OutlinedButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Refresh live data')),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _LiveDataTable(
+            emptyText:
+                'No sales for this range. Create a sale to post stock and ledger entries.',
+            columns: const [
+              'Invoice',
+              'Date',
+              'Customer',
+              'Product / ID',
+              'Qty',
+              'Grand total',
+              'Status'
+            ],
+            rows: [
+              for (final sale in filteredSales)
+                [
+                  '${sale['invoiceNumber'] ?? ''}',
+                  _shortDate(sale['saleDateUtc']),
+                  _customerName('${sale['customerId']}'),
+                  _saleProductLabel(sale),
+                  _saleQuantity(sale),
+                  _money(sale['grandTotal']),
+                  '${sale['status'] ?? ''}',
+                ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _load() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Please sign in again.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final organisations = await api.listOrganisations(token);
+      final organisation = await _selectOperationalOrganisation(
+        organisations,
+        (organisationId) async {
+          final branches = await api.listBranches(token, organisationId);
+          final warehouses = await api.listWarehouses(token, organisationId);
+          return [...branches, ...warehouses];
+        },
+      );
+      if (organisation == null) {
+        throw StateError(
+            'No organisation exists. Restart the API so development seed data can be created.');
+      }
+
+      final organisationId = '${organisation['id']}';
+      final branches = await api.listBranches(token, organisationId);
+      final warehouses = await api.listWarehouses(token, organisationId);
+      final customers = await api.listCustomers(token, organisationId);
+      final products = await api.listProducts(token, organisationId);
+      final sales = await api.listSales(token, organisationId);
+
+      setState(() {
+        _organisation = organisation;
+        _branch = branches.isNotEmpty ? branches.first : null;
+        _warehouse = warehouses.isNotEmpty ? warehouses.first : null;
+        _customers = customers;
+        _products = products;
+        _sales = sales;
+      });
+    } catch (error) {
+      setState(() => _error = 'Could not load live sales data: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> _filteredSales() {
+    final now = DateTime.now();
+    return _sales.where((sale) {
+      final saleDate = DateTime.tryParse('${sale['saleDateUtc']}')?.toLocal();
+      if (saleDate == null || _range == 'all') {
+        return true;
+      }
+
+      return switch (_range) {
+        'today' => saleDate.year == now.year &&
+            saleDate.month == now.month &&
+            saleDate.day == now.day,
+        'week' => now.difference(saleDate).inDays < 7,
+        'month' => saleDate.year == now.year && saleDate.month == now.month,
+        'year' => saleDate.year == now.year,
+        _ => true,
+      };
+    }).toList();
+  }
+
+  Future<void> _openCreateSale() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CreateSaleDialog(
+        organisation: _organisation,
+        branch: _branch,
+        warehouse: _warehouse,
+        customers: _customers,
+        products: _products,
+      ),
+    );
+
+    if (created == true) {
+      await _load();
+    }
+  }
+
+  String _customerName(String customerId) {
+    return _customers
+            .where((customer) => '${customer['id']}' == customerId)
+            .map((customer) => '${customer['displayName']}')
+            .firstOrNull ??
+        customerId;
+  }
+
+  String _saleProductLabel(Map<String, dynamic> sale) {
+    final items = sale['items'];
+    if (items is! List || items.isEmpty) {
+      return '-';
+    }
+
+    final firstItem = items.first as Map<String, dynamic>;
+    final productId = '${firstItem['productId']}';
+    final product =
+        _products.where((item) => '${item['id']}' == productId).firstOrNull;
+    return '${product?['name'] ?? firstItem['description']} / $productId';
+  }
+
+  String _saleQuantity(Map<String, dynamic> sale) {
+    final items = sale['items'];
+    if (items is! List || items.isEmpty) {
+      return '-';
+    }
+
+    final firstItem = items.first as Map<String, dynamic>;
+    return '${firstItem['quantity']}';
+  }
+}
+
+class _LivePageFrame extends StatelessWidget {
+  const _LivePageFrame({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.loading,
+    required this.error,
+    required this.onRefresh,
+    required this.actions,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final bool loading;
+  final String? error;
+  final Future<void> Function() onRefresh;
+  final List<Widget> actions;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final padding = AppBreakpoints.pagePadding(constraints.maxWidth);
+        final compact = AppBreakpoints.isMobile(constraints.maxWidth);
+
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flex(
+                  direction: compact ? Axis.vertical : Axis.horizontal,
+                  crossAxisAlignment: compact
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: Icon(icon, color: color, size: 28),
+                    ),
+                    const SizedBox(width: AppSpacing.md, height: AppSpacing.md),
+                    Expanded(
+                      flex: compact ? 0 : 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title,
+                              style: Theme.of(context).textTheme.headlineLarge),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(subtitle,
+                              style: Theme.of(context).textTheme.bodyMedium),
+                        ],
+                      ),
+                    ),
+                    Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: actions),
+                  ],
+                ),
+                if (loading) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  const LinearProgressIndicator(),
+                ],
+                if (error != null) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  _InlinePanel(
+                      message: error!,
+                      color: AppColors.danger,
+                      icon: Icons.error_outline),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                child,
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ContextStrip extends StatelessWidget {
+  const _ContextStrip({this.organisation, this.branch, this.warehouse});
+
+  final Map<String, dynamic>? organisation;
+  final Map<String, dynamic>? branch;
+  final Map<String, dynamic>? warehouse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.sm,
+          children: [
+            _ContextChip(
+                icon: Icons.business,
+                label: '${organisation?['displayName'] ?? 'No organisation'}'),
+            _ContextChip(
+                icon: Icons.store_outlined,
+                label: '${branch?['name'] ?? 'No branch'}'),
+            if (warehouse != null)
+              _ContextChip(
+                  icon: Icons.warehouse_outlined,
+                  label: '${warehouse?['name']}'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContextChip extends StatelessWidget {
+  const _ContextChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile(this.label, this.value, this.icon, this.color);
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.12),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(value, style: Theme.of(context).textTheme.titleLarge),
+                  Text(label, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveDataTable extends StatelessWidget {
+  const _LiveDataTable(
+      {required this.columns, required this.rows, required this.emptyText});
+
+  final List<String> columns;
+  final List<List<String>> rows;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: rows.isEmpty
+            ? _InlinePanel(
+                message: emptyText,
+                color: AppColors.cobalt,
+                icon: Icons.info_outline)
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columns: [
+                    for (final column in columns)
+                      DataColumn(label: Text(column))
+                  ],
+                  rows: [
+                    for (final row in rows)
+                      DataRow(cells: [
+                        for (final cell in row) DataCell(Text(cell))
+                      ]),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _InlinePanel extends StatelessWidget {
+  const _InlinePanel(
+      {required this.message, required this.color, required this.icon});
+
+  final String message;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateCustomerDialog extends ConsumerStatefulWidget {
+  const _CreateCustomerDialog(
+      {required this.organisation, required this.branch});
+
+  final Map<String, dynamic>? organisation;
+  final Map<String, dynamic>? branch;
+
+  @override
+  ConsumerState<_CreateCustomerDialog> createState() =>
+      _CreateCustomerDialogState();
+}
+
+class _CreateCustomerDialogState extends ConsumerState<_CreateCustomerDialog> {
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _creditLimit = TextEditingController(text: '0');
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _creditLimit.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New customer'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Display name')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _phone,
+                decoration: const InputDecoration(labelText: 'Phone')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _creditLimit,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Credit limit')),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _create,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Create')),
+      ],
+    );
+  }
+
+  Future<void> _create() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    final organisationId = '${widget.organisation?['id'] ?? ''}';
+    final branchId = '${widget.branch?['id'] ?? ''}';
+    if (token == null ||
+        organisationId.isEmpty ||
+        branchId.isEmpty ||
+        _name.text.trim().isEmpty) {
+      setState(() =>
+          _error = 'Organisation, branch, and customer name are required.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createCustomer(
+            token,
+            organisationId: organisationId,
+            branchId: branchId,
+            customerNumber: 'C-${DateTime.now().millisecondsSinceEpoch}',
+            displayName: _name.text.trim(),
+            phone: _phone.text.trim(),
+            email: _email.text.trim(),
+            creditLimit: double.tryParse(_creditLimit.text) ?? 0,
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Customer was not created: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+class _CreateSaleDialog extends ConsumerStatefulWidget {
+  const _CreateSaleDialog({
+    required this.organisation,
+    required this.branch,
+    required this.warehouse,
+    required this.customers,
+    required this.products,
+  });
+
+  final Map<String, dynamic>? organisation;
+  final Map<String, dynamic>? branch;
+  final Map<String, dynamic>? warehouse;
+  final List<Map<String, dynamic>> customers;
+  final List<Map<String, dynamic>> products;
+
+  @override
+  ConsumerState<_CreateSaleDialog> createState() => _CreateSaleDialogState();
+}
+
+class _CreateSaleDialogState extends ConsumerState<_CreateSaleDialog> {
+  final _quantity = TextEditingController(text: '1');
+  String? _customerId;
+  String? _productId;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _customerId =
+        widget.customers.isNotEmpty ? '${widget.customers.first['id']}' : null;
+    _productId =
+        widget.products.isNotEmpty ? '${widget.products.first['id']}' : null;
+  }
+
+  @override
+  void dispose() {
+    _quantity.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedProduct = widget.products
+        .where((item) => '${item['id']}' == _productId)
+        .firstOrNull;
+    return AlertDialog(
+      title: const Text('New sale'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _customerId,
+              decoration: const InputDecoration(labelText: 'Customer'),
+              items: [
+                for (final customer in widget.customers)
+                  DropdownMenuItem(
+                      value: '${customer['id']}',
+                      child: Text('${customer['displayName']}')),
+              ],
+              onChanged: (value) => setState(() => _customerId = value),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: _productId,
+              decoration: const InputDecoration(labelText: 'Product'),
+              items: [
+                for (final product in widget.products)
+                  DropdownMenuItem(
+                      value: '${product['id']}',
+                      child: Text(
+                          '${product['productCode']} - ${product['name']}')),
+              ],
+              onChanged: (value) => setState(() => _productId = value),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+                controller: _quantity,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Quantity')),
+            const SizedBox(height: AppSpacing.md),
+            _InlinePanel(
+              message:
+                  'Unit price: ${_money(selectedProduct?['salesPrice'])}. Sale posts stock movement and customer ledger entry.',
+              color: AppColors.success,
+              icon: Icons.verified_outlined,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: _busy ? null : _create,
+            icon: const Icon(Icons.point_of_sale),
+            label: const Text('Post sale')),
+      ],
+    );
+  }
+
+  Future<void> _create() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    final organisationId = '${widget.organisation?['id'] ?? ''}';
+    final branchId = '${widget.branch?['id'] ?? ''}';
+    final warehouseId = '${widget.warehouse?['id'] ?? ''}';
+    final selectedProduct = widget.products
+        .where((item) => '${item['id']}' == _productId)
+        .firstOrNull;
+    if (token == null ||
+        organisationId.isEmpty ||
+        branchId.isEmpty ||
+        warehouseId.isEmpty ||
+        _customerId == null ||
+        selectedProduct == null) {
+      setState(() => _error =
+          'Organisation, branch, warehouse, customer, and product are required.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(apiClientProvider).createSale(
+            token,
+            organisationId: organisationId,
+            branchId: branchId,
+            warehouseId: warehouseId,
+            customerId: _customerId!,
+            productId: _productId!,
+            description: '${selectedProduct['name']}',
+            quantity: double.tryParse(_quantity.text) ?? 1,
+            unitPrice: _asDouble(selectedProduct['salesPrice']),
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      setState(() => _error = 'Sale was not posted: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
 class _ModuleHeader extends StatelessWidget {
   const _ModuleHeader({required this.module, required this.compact});
 
@@ -68,7 +1023,8 @@ class _ModuleHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Flex(
       direction: compact ? Axis.vertical : Axis.horizontal,
-      crossAxisAlignment: compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment:
+          compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         Container(
           width: 54,
@@ -85,14 +1041,19 @@ class _ModuleHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(module.title, style: Theme.of(context).textTheme.headlineLarge),
+              Text(module.title,
+                  style: Theme.of(context).textTheme.headlineLarge),
               const SizedBox(height: AppSpacing.xs),
-              Text(module.description, style: Theme.of(context).textTheme.bodyMedium),
+              Text(module.description,
+                  style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
         ),
         SizedBox(height: compact ? AppSpacing.md : 0),
-        FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.add), label: Text(module.primaryAction)),
+        FilledButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.add),
+            label: Text(module.primaryAction)),
       ],
     );
   }
@@ -136,11 +1097,13 @@ class _ModuleToolbarState extends State<_ModuleToolbar> {
                 initialValue: _branch,
                 decoration: const InputDecoration(labelText: 'Branch'),
                 items: const [
-                  DropdownMenuItem(value: 'All branches', child: Text('All branches')),
+                  DropdownMenuItem(
+                      value: 'All branches', child: Text('All branches')),
                   DropdownMenuItem(value: 'Main', child: Text('Main')),
                   DropdownMenuItem(value: 'North', child: Text('North')),
                 ],
-                onChanged: (value) => setState(() => _branch = value ?? _branch),
+                onChanged: (value) =>
+                    setState(() => _branch = value ?? _branch),
               ),
             ),
             SegmentedButton<String>(
@@ -150,9 +1113,13 @@ class _ModuleToolbarState extends State<_ModuleToolbar> {
                 ButtonSegment(value: 'Archived', label: Text('Archived')),
               ],
               selected: {_view},
-              onSelectionChanged: (value) => setState(() => _view = value.first),
+              onSelectionChanged: (value) =>
+                  setState(() => _view = value.first),
             ),
-            OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.tune), label: const Text('Filters')),
+            OutlinedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.tune),
+                label: const Text('Filters')),
           ],
         ),
       ),
@@ -173,7 +1140,8 @@ class _PipelinePanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${module.title} workflow', style: Theme.of(context).textTheme.titleLarge),
+            Text('${module.title} workflow',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
             for (var i = 0; i < module.stages.length; i++) ...[
               _StageTile(
@@ -182,7 +1150,8 @@ class _PipelinePanel extends StatelessWidget {
                 count: module.stageCounts[i],
                 color: module.color,
               ),
-              if (i != module.stages.length - 1) const SizedBox(height: AppSpacing.sm),
+              if (i != module.stages.length - 1)
+                const SizedBox(height: AppSpacing.sm),
             ],
           ],
         ),
@@ -192,7 +1161,11 @@ class _PipelinePanel extends StatelessWidget {
 }
 
 class _StageTile extends StatelessWidget {
-  const _StageTile({required this.index, required this.title, required this.count, required this.color});
+  const _StageTile(
+      {required this.index,
+      required this.title,
+      required this.count,
+      required this.color});
 
   final int index;
   final String title;
@@ -221,10 +1194,14 @@ class _StageTile extends StatelessWidget {
             CircleAvatar(
               radius: 15,
               backgroundColor: color,
-              child: Text('$index', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              child: Text('$index',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+            Expanded(
+                child: Text(title,
+                    style: Theme.of(context).textTheme.titleMedium)),
             Chip(label: Text('$count')),
           ],
         ),
@@ -248,9 +1225,16 @@ class _InsightPanel extends StatelessWidget {
           children: [
             Text('Insights', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
-            _InsightRow(label: 'Cycle health', value: module.health, icon: Icons.speed),
-            _InsightRow(label: 'Exceptions', value: module.exceptions, icon: Icons.warning_amber),
-            _InsightRow(label: 'Audit coverage', value: 'Enabled', icon: Icons.verified_user_outlined),
+            _InsightRow(
+                label: 'Cycle health', value: module.health, icon: Icons.speed),
+            _InsightRow(
+                label: 'Exceptions',
+                value: module.exceptions,
+                icon: Icons.warning_amber),
+            _InsightRow(
+                label: 'Audit coverage',
+                value: 'Enabled',
+                icon: Icons.verified_user_outlined),
             const SizedBox(height: AppSpacing.md),
             LinearProgressIndicator(
               value: module.progress,
@@ -267,7 +1251,8 @@ class _InsightPanel extends StatelessWidget {
 }
 
 class _InsightRow extends StatelessWidget {
-  const _InsightRow({required this.label, required this.value, required this.icon});
+  const _InsightRow(
+      {required this.label, required this.value, required this.icon});
 
   final String label;
   final String value;
@@ -302,7 +1287,8 @@ class _RecordsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Recent records', style: Theme.of(context).textTheme.titleLarge),
+            Text('Recent records',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -365,9 +1351,12 @@ class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Security settings', style: Theme.of(context).textTheme.headlineLarge),
+              Text('Security settings',
+                  style: Theme.of(context).textTheme.headlineLarge),
               const SizedBox(height: AppSpacing.xs),
-              Text('Manage account access, sessions, password hygiene, and protected operations.', style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                  'Manage account access, sessions, password hygiene, and protected operations.',
+                  style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: AppSpacing.lg),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),
@@ -377,12 +1366,15 @@ class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Change password', style: Theme.of(context).textTheme.titleLarge),
+                        Text('Change password',
+                            style: Theme.of(context).textTheme.titleLarge),
                         const SizedBox(height: AppSpacing.md),
                         TextField(
                           controller: _currentPassword,
                           obscureText: _obscure,
-                          decoration: const InputDecoration(labelText: 'Current password', prefixIcon: Icon(Icons.lock_outline)),
+                          decoration: const InputDecoration(
+                              labelText: 'Current password',
+                              prefixIcon: Icon(Icons.lock_outline)),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         TextField(
@@ -392,15 +1384,20 @@ class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
                             labelText: 'New password',
                             prefixIcon: const Icon(Icons.password),
                             suffixIcon: IconButton(
-                              tooltip: _obscure ? 'Show password' : 'Hide password',
-                              onPressed: () => setState(() => _obscure = !_obscure),
-                              icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                              tooltip:
+                                  _obscure ? 'Show password' : 'Hide password',
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
+                              icon: Icon(_obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined),
                             ),
                           ),
                         ),
                         if (auth.error != null) ...[
                           const SizedBox(height: AppSpacing.md),
-                          Text(auth.error!, style: const TextStyle(color: AppColors.danger)),
+                          Text(auth.error!,
+                              style: const TextStyle(color: AppColors.danger)),
                         ],
                         const SizedBox(height: AppSpacing.lg),
                         FilledButton.icon(
@@ -434,6 +1431,61 @@ class _SettingsWorkspaceState extends ConsumerState<_SettingsWorkspace> {
   }
 }
 
+double _asDouble(Object? value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  return double.tryParse('$value') ?? 0;
+}
+
+Future<Map<String, dynamic>?> _selectOperationalOrganisation(
+  List<Map<String, dynamic>> organisations,
+  Future<List<Map<String, dynamic>>> Function(String organisationId)
+      loadContext,
+) async {
+  final mainOrganisation = organisations.where((organisation) {
+    final displayName = '${organisation['displayName'] ?? ''}'.toLowerCase();
+    final legalName = '${organisation['legalName'] ?? ''}'.toLowerCase();
+    return displayName == 'main organisation' ||
+        legalName == 'unify demo trading llc';
+  }).firstOrNull;
+  if (mainOrganisation != null) {
+    return mainOrganisation;
+  }
+
+  Map<String, dynamic>? first;
+
+  for (final organisation in organisations) {
+    first ??= organisation;
+    final organisationId = '${organisation['id'] ?? ''}';
+    if (organisationId.isEmpty) {
+      continue;
+    }
+
+    final contextItems = await loadContext(organisationId);
+    if (contextItems.isNotEmpty) {
+      return organisation;
+    }
+  }
+
+  return first;
+}
+
+String _money(Object? value) {
+  final amount = _asDouble(value);
+  return 'PKR ${amount.toStringAsFixed(0)}';
+}
+
+String _shortDate(Object? value) {
+  final parsed = DateTime.tryParse('$value')?.toLocal();
+  if (parsed == null) {
+    return '-';
+  }
+
+  return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+}
+
 class ModuleDefinition {
   const ModuleDefinition({
     required this.id,
@@ -465,7 +1517,8 @@ class ModuleDefinition {
 }
 
 class ModuleRecord {
-  const ModuleRecord(this.reference, this.name, this.owner, this.status, this.value);
+  const ModuleRecord(
+      this.reference, this.name, this.owner, this.status, this.value);
 
   final String reference;
   final String name;
@@ -486,11 +1539,17 @@ class ModuleCatalog {
     ModuleDefinition(
       id: 'customers',
       title: 'Customers',
-      description: 'Customer profiles, credit control, branch ownership, and receivable visibility.',
+      description:
+          'Customer profiles, credit control, branch ownership, and receivable visibility.',
       primaryAction: 'New customer',
       icon: Icons.people_alt,
       color: AppColors.royalPurple,
-      stages: ['Capture profile', 'Validate credit', 'Manage status', 'Review ledger'],
+      stages: [
+        'Capture profile',
+        'Validate credit',
+        'Manage status',
+        'Review ledger'
+      ],
       stageCounts: [42, 8, 5, 27],
       health: 'Strong',
       exceptions: '5 holds',
@@ -504,25 +1563,34 @@ class ModuleCatalog {
     ModuleDefinition(
       id: 'sales',
       title: 'Sales',
-      description: 'Invoices, stock movement, customer ledger posting, and sales operations.',
+      description:
+          'Invoices, stock movement, customer ledger posting, and sales operations.',
       primaryAction: 'New sale',
       icon: Icons.point_of_sale,
       color: AppColors.cobalt,
-      stages: ['Draft invoice', 'Reserve stock', 'Post sale', 'Collect payment'],
+      stages: [
+        'Draft invoice',
+        'Reserve stock',
+        'Post sale',
+        'Collect payment'
+      ],
       stageCounts: [18, 11, 34, 23],
       health: 'On target',
       exceptions: '3 stock gaps',
       progress: 0.74,
       records: [
-        ModuleRecord('INV-1042', 'Walk-in sale', 'Counter', 'Posted', 'PKR 84K'),
+        ModuleRecord(
+            'INV-1042', 'Walk-in sale', 'Counter', 'Posted', 'PKR 84K'),
         ModuleRecord('INV-1043', 'North Retail', 'Waqar', 'Draft', 'PKR 112K'),
-        ModuleRecord('INV-1044', 'City Wholesale', 'Sana', 'Posted', 'PKR 320K'),
+        ModuleRecord(
+            'INV-1044', 'City Wholesale', 'Sana', 'Posted', 'PKR 320K'),
       ],
     ),
     ModuleDefinition(
       id: 'inventory',
       title: 'Inventory',
-      description: 'Warehouse balances, stock movements, transfers, adjustments, and reorder checks.',
+      description:
+          'Warehouse balances, stock movements, transfers, adjustments, and reorder checks.',
       primaryAction: 'Adjust stock',
       icon: Icons.inventory_2,
       color: AppColors.success,
@@ -533,14 +1601,17 @@ class ModuleCatalog {
       progress: 0.68,
       records: [
         ModuleRecord('STK-881', 'Regulator 12kg', 'Main', 'Low', '44 units'),
-        ModuleRecord('STK-882', 'Cylinder 45kg', 'Warehouse', 'Healthy', '290 units'),
-        ModuleRecord('TRF-210', 'Main to North', 'Inventory', 'Pending', '36 units'),
+        ModuleRecord(
+            'STK-882', 'Cylinder 45kg', 'Warehouse', 'Healthy', '290 units'),
+        ModuleRecord(
+            'TRF-210', 'Main to North', 'Inventory', 'Pending', '36 units'),
       ],
     ),
     ModuleDefinition(
       id: 'purchasing',
       title: 'Purchasing',
-      description: 'Purchase orders, goods receipts, supplier invoices, and inbound stock flow.',
+      description:
+          'Purchase orders, goods receipts, supplier invoices, and inbound stock flow.',
       primaryAction: 'New PO',
       icon: Icons.shopping_cart,
       color: AppColors.coral,
@@ -550,15 +1621,19 @@ class ModuleCatalog {
       exceptions: '6 delayed',
       progress: 0.57,
       records: [
-        ModuleRecord('PO-3301', 'Gas Supply Co', 'Procurement', 'Open', 'PKR 900K'),
-        ModuleRecord('GRN-821', 'Cylinder receipt', 'Warehouse', 'Received', '120 units'),
-        ModuleRecord('PIN-442', 'Supplier invoice', 'Finance', 'Draft', 'PKR 240K'),
+        ModuleRecord(
+            'PO-3301', 'Gas Supply Co', 'Procurement', 'Open', 'PKR 900K'),
+        ModuleRecord('GRN-821', 'Cylinder receipt', 'Warehouse', 'Received',
+            '120 units'),
+        ModuleRecord(
+            'PIN-442', 'Supplier invoice', 'Finance', 'Draft', 'PKR 240K'),
       ],
     ),
     ModuleDefinition(
       id: 'accounting',
       title: 'Accounting',
-      description: 'Chart of accounts, fiscal periods, balanced journals, and financial controls.',
+      description:
+          'Chart of accounts, fiscal periods, balanced journals, and financial controls.',
       primaryAction: 'New journal',
       icon: Icons.account_balance,
       color: AppColors.metallicGold,
@@ -568,15 +1643,18 @@ class ModuleCatalog {
       exceptions: '2 drafts',
       progress: 0.79,
       records: [
-        ModuleRecord('JE-104', 'Sales posting', 'Finance', 'Posted', 'PKR 842K'),
-        ModuleRecord('JE-105', 'Inventory valuation', 'Finance', 'Draft', 'PKR 190K'),
+        ModuleRecord(
+            'JE-104', 'Sales posting', 'Finance', 'Posted', 'PKR 842K'),
+        ModuleRecord(
+            'JE-105', 'Inventory valuation', 'Finance', 'Draft', 'PKR 190K'),
         ModuleRecord('ACC-220', 'Cash account', 'Finance', 'Active', 'PKR 0'),
       ],
     ),
     ModuleDefinition(
       id: 'reports',
       title: 'Reports',
-      description: 'Operational exports, financial packs, inventory reports, and audit review.',
+      description:
+          'Operational exports, financial packs, inventory reports, and audit review.',
       primaryAction: 'Generate report',
       icon: Icons.bar_chart,
       color: AppColors.mint,
@@ -587,7 +1665,8 @@ class ModuleCatalog {
       progress: 0.91,
       records: [
         ModuleRecord('RPT-001', 'Daily sales', 'Operations', 'Ready', 'PDF'),
-        ModuleRecord('RPT-002', 'Stock valuation', 'Inventory', 'Ready', 'Excel'),
+        ModuleRecord(
+            'RPT-002', 'Stock valuation', 'Inventory', 'Ready', 'Excel'),
         ModuleRecord('RPT-003', 'Audit trail', 'Security', 'Ready', 'CSV'),
       ],
     ),

@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Unify.Erp.Api.Auth;
+using Unify.Erp.Api.Platform;
 using Unify.Erp.Application;
 using Unify.Erp.Contracts.System;
 using Unify.Erp.Infrastructure;
@@ -62,6 +63,7 @@ app.MapGet("/api/v1/system/health", () =>
 .WithName("GetSystemHealth");
 
 app.MapAuthEndpoints();
+app.MapPlatformEndpoints();
 
 app.Run();
 

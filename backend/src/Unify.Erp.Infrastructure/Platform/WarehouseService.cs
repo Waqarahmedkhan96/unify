@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Unify.Erp.Application.Platform;
+using Unify.Erp.Contracts.Common;
 using Unify.Erp.Contracts.Platform;
 using Unify.Erp.Domain.Warehouses;
 using Unify.Erp.Infrastructure.Persistence;
@@ -42,16 +43,25 @@ public sealed class WarehouseService : IWarehouseService
         return ToResponse(warehouse);
     }
 
-    public async Task<IReadOnlyCollection<WarehouseResponse>> ListByOrganisationAsync(
+    public async Task<PagedResponse<WarehouseResponse>> ListByOrganisationAsync(
         Guid organisationId,
+        PagedRequest request,
         CancellationToken cancellationToken)
     {
-        return await _dbContext.Warehouses
+        var pageNumber = request.NormalizedPageNumber;
+        var pageSize = request.NormalizedPageSize;
+        var query = _dbContext.Warehouses
             .AsNoTracking()
-            .Where(warehouse => warehouse.OrganisationId == organisationId)
+            .Where(warehouse => warehouse.OrganisationId == organisationId);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderBy(warehouse => warehouse.Code)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(warehouse => ToResponse(warehouse))
             .ToListAsync(cancellationToken);
+
+        return new PagedResponse<WarehouseResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     private static WarehouseResponse ToResponse(Warehouse warehouse)

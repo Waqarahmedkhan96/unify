@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Unify.Erp.Api.Common;
 using Unify.Erp.Application.Auth;
 using Unify.Erp.Contracts.Auth;
 
@@ -40,12 +41,14 @@ public static class AuthEndpoints
 
     private static async Task<IResult> LoginAsync(
         LoginRequest request,
+        HttpContext httpContext,
         IAuthenticationService authenticationService,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
         {
-            return Results.BadRequest(new { code = "auth.invalid_request" });
+            return validationResult.ToProblem(httpContext);
         }
 
         var result = await authenticationService.LoginAsync(request, cancellationToken);
@@ -55,12 +58,14 @@ public static class AuthEndpoints
 
     private static async Task<IResult> RefreshAsync(
         RefreshTokenRequest request,
+        HttpContext httpContext,
         IAuthenticationService authenticationService,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
         {
-            return Results.BadRequest(new { code = "auth.invalid_request" });
+            return validationResult.ToProblem(httpContext);
         }
 
         var result = await authenticationService.RefreshAsync(request, cancellationToken);
@@ -115,12 +120,14 @@ public static class AuthEndpoints
 
     private static async Task<IResult> LogoutAsync(
         LogoutRequest request,
+        HttpContext httpContext,
         IAuthenticationService authenticationService,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        var validationResult = request.Validate();
+        if (!validationResult.IsValid)
         {
-            return Results.BadRequest(new { code = "auth.invalid_request" });
+            return validationResult.ToProblem(httpContext);
         }
 
         await authenticationService.LogoutAsync(request.RefreshToken, cancellationToken);

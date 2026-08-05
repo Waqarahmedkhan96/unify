@@ -18,6 +18,7 @@ using Unify.Erp.Application.Common;
 using Unify.Erp.Contracts.System;
 using Unify.Erp.Infrastructure;
 using Unify.Erp.Infrastructure.Auth;
+using Unify.Erp.Infrastructure.Deployment;
 using Unify.Erp.Infrastructure.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,8 @@ builder.Services.AddScoped<IExecutionContext, HttpExecutionContext>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
+
+ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment.EnvironmentName);
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 if (!string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
